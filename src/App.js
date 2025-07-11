@@ -36,7 +36,7 @@ const LoadingSpinner = ({ small = false }) => (
 );
 
 const ErrorMessage = ({ message }) => (
-    <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg shadow-md" role="alert">
+    <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg shadow-md mb-4" role="alert">
         <p className="font-bold">Oops!</p>
         <p>{message}</p>
     </div>
@@ -121,6 +121,7 @@ export default function App() {
     const [suggestedItems, setSuggestedItems] = useState([]);
     const [isSuggestingItems, setIsSuggestingItems] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
+    const [inputError, setInputError] = useState(false); // For highlighting the input box
 
     const [isPremium, setIsPremium] = useState(() => {
         const saved = localStorage.getItem('isPremium');
@@ -205,8 +206,17 @@ export default function App() {
     };
 
     const handleSortList = async (listToSort) => {
-        setIsLoading(true);
+        // --- MODIFIED: Clear previous errors and validate input first ---
         setError('');
+        setInputError(false);
+        if (!listToSort.trim()) {
+            setError("Please enter a grocery list before sorting.");
+            setInputError(true);
+            return; // Stop execution
+        }
+
+        setIsLoading(true);
+        setSortedList(null);
         setMealIdea('');
         setSuggestedItems([]);
         
@@ -307,6 +317,7 @@ export default function App() {
         setRawList('');
         setSortedList(null);
         setError('');
+        setInputError(false); // Clear input error on start over
         setMealIdea('');
         setSuggestedItems([]);
         setIgnoredSuggestions([]);
@@ -358,8 +369,10 @@ export default function App() {
                 </div>
 
                 <main className="bg-white p-6 rounded-2xl shadow-lg">
+                    {/* --- MODIFIED: This view now shows the error message within it --- */}
                     {!sortedList && !isLoading && (
                         <>
+                            {error && <ErrorMessage message={error} />}
                             <div className="w-full">
                                 <label htmlFor="grocery-list" className="block text-sm font-medium text-gray-700">
                                     Enter Your List to Sort it Instantly
@@ -368,7 +381,7 @@ export default function App() {
                                 <textarea
                                     id="grocery-list"
                                     rows="8"
-                                    className="p-3 w-full text-base border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
+                                    className={`p-3 w-full text-base border rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition ${inputError ? 'border-red-500 ring-red-500' : 'border-gray-300'}`}
                                     placeholder="- Apples&#10;- Milk&#10;- Bread&#10;- Paper towels"
                                     value={rawList}
                                     onChange={(e) => setRawList(e.target.value)}
@@ -396,7 +409,8 @@ export default function App() {
 
                     <div className="mt-8">
                         {isLoading && <LoadingSpinner />}
-                        {error && <ErrorMessage message={error} />}
+                        {/* Error message for sorted view */}
+                        {error && sortedList && <ErrorMessage message={error} />}
                         
                         {!isLoading && !error && !hasItems(sortedList) && !rawList && <EmptyState />}
 
