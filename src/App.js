@@ -333,7 +333,6 @@ export default function App() {
         setSuggestedItems(prev => prev.filter(item => item !== suggestion));
     };
 
-    // --- NEW: Delete Item Function ---
     const handleDeleteItem = (categoryToDelete, indexToDelete) => {
         const newSortedList = JSON.parse(JSON.stringify(sortedList));
         newSortedList[categoryToDelete] = newSortedList[categoryToDelete].filter((_, index) => index !== indexToDelete);
@@ -372,9 +371,8 @@ export default function App() {
         <div className="bg-gray-50 min-h-screen font-sans antialiased text-gray-900 pb-12">
              <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@700&display=swap');
-                .edit-icon { opacity: 0; transition: opacity 0.2s ease-in-out; }
-                .delete-icon { opacity: 0; transition: opacity 0.2s ease-in-out; }
-                .list-item:hover .edit-icon, .list-item:hover .delete-icon { opacity: 0.5; }
+                .edit-icon, .delete-icon { opacity: 0; transition: opacity 0.2s ease-in-out; }
+                .list-item-row:hover .edit-icon, .list-item-row:hover .delete-icon { opacity: 0.5; }
                 .toggle-checkbox:checked { right: 0; border-color: #4f46e5; }
                 .toggle-checkbox:checked + .toggle-label { background-color: #4f46e5; }
             `}</style>
@@ -474,7 +472,7 @@ export default function App() {
                                                 <table className="w-full">
                                                     <tbody>
                                                         {items.map((item, index) => (
-                                                            <tr key={`${category}-${index}-${item.name}`} className="group list-item">
+                                                            <tr key={`${category}-${index}-${item.name}`} className="group list-item-row">
                                                                 <td className="w-8 py-1 align-top">
                                                                     {isPremium && (
                                                                         <input
@@ -499,13 +497,13 @@ export default function App() {
                                                                     ) : (
                                                                         <div className="flex justify-between items-center w-full">
                                                                             <span 
-                                                                                className={`cursor-pointer ${item.checked ? 'line-through text-gray-400' : ''}`}
+                                                                                className={`cursor-pointer flex-grow ${item.checked ? 'line-through text-gray-400' : ''}`}
                                                                                 onClick={() => handleEditStart(category, index)}
                                                                             >
                                                                                 {item.name}
                                                                             </span>
-                                                                            <div className="flex items-center space-x-2">
-                                                                                <svg onClick={() => handleEditStart(category, index)} xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 cursor-pointer edit-icon flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                            <div className="flex items-center flex-shrink-0 ml-4 space-x-2">
+                                                                                <svg onClick={() => handleEditStart(category, index)} xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 cursor-pointer edit-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L16.732 3.732z" />
                                                                                 </svg>
                                                                                 <svg onClick={() => handleDeleteItem(category, index)} xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 cursor-pointer delete-icon hover:text-red-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
