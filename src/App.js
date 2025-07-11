@@ -83,7 +83,6 @@ const EmptyState = () => (
     </div>
 );
 
-// --- MODIFIED: Ad Banner with Live AdSense Code ---
 const AdBanner = () => {
     useEffect(() => {
         try {
@@ -135,7 +134,7 @@ export default function App() {
     const [isSuggestingItems, setIsSuggestingItems] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
     const [inputError, setInputError] = useState(false);
-    const [isSavingEdit, setIsSavingEdit] = useState(false); // --- NEW: State to prevent double saves ---
+    const [needsResort, setNeedsResort] = useState(false); // --- NEW: Track if a re-sort is needed ---
 
     const [isPremium, setIsPremium] = useState(() => {
         const saved = localStorage.getItem('isPremium');
@@ -219,7 +218,7 @@ export default function App() {
         }
     };
 
-    const handleSortList = async (listToSort) => {
+    const handleSortList = async (listToSort, isInitialSort = false) => {
         setError('');
         setInputError(false);
         if (!listToSort.trim()) {
@@ -229,7 +228,9 @@ export default function App() {
         }
 
         setIsLoading(true);
-        setSortedList(null);
+        if (isInitialSort) {
+            setSortedList(null);
+        }
         setMealIdea('');
         setSuggestedItems([]);
         
@@ -247,14 +248,22 @@ export default function App() {
                 completeList[category] = items.map(name => ({ name, checked: false, isEditing: false }));
             }
             setSortedList(completeList);
-            setRawList('');
+            if (isInitialSort) {
+                setRawList('');
+            }
+            setNeedsResort(false); // --- NEW: Reset the resort flag after a successful sort ---
         } catch (err) {
             setError(err.message);
-            setSortedList(null);
+            // --- MODIFIED: Do NOT clear the list on error ---
         } finally {
             setIsLoading(false);
-            setIsSavingEdit(false); // --- NEW: Reset saving state after API call completes ---
         }
+    };
+    
+    // --- NEW: Function specifically for re-sorting the existing list ---
+    const handleResort = () => {
+        const currentListItems = Object.values(sortedList || {}).flat().map(item => item.name).join('\n');
+        handleSortList(currentListItems);
     };
 
     const handleGetMealIdea = async () => {
@@ -305,13 +314,10 @@ export default function App() {
         setSortedList(newSortedList);
     };
 
-    // --- MODIFIED: Added a check to prevent double submissions ---
+    // --- MODIFIED: Edit save is now local and triggers a "needs resort" flag ---
     const handleEditSave = () => {
-        if (isSavingEdit) return; // Don't do anything if already saving
-        setIsSavingEdit(true); // Set saving state to true
         setEditingItem(null);
-        const newRawList = categoryOrder.flatMap(cat => sortedList[cat]?.map(item => item.name) || []).join('\n');
-        handleSortList(newRawList);
+        setNeedsResort(true);
     };
     
     const handleAddNewItem = () => {
@@ -338,6 +344,7 @@ export default function App() {
         setMealIdea('');
         setSuggestedItems([]);
         setIgnoredSuggestions([]);
+        setNeedsResort(false);
         localStorage.removeItem('groceryAssistant-sortedList');
         localStorage.removeItem('groceryAssistant-ignoredSuggestions');
     };
@@ -386,12 +393,26 @@ export default function App() {
                 </div>
 
                 <main className="bg-white p-6 rounded-2xl shadow-lg">
-                    {isLoading && !isSavingEdit ? <LoadingSpinner /> : (
+                    {isLoading && !sortedList ? <LoadingSpinner /> : (
                         hasItems(sortedList) ? (
                             // --- SORTED LIST VIEW ---
                             <div className="space-y-6">
                                 {error && <ErrorMessage message={error} />}
                                 <h2 className="text-2xl font-bold text-center text-gray-800">Your Organized List</h2>
+                                
+                                {needsResort && !isLoading && (
+                                    <div className="p-3 bg-orange-100 border border-orange-300 rounded-lg flex items-center justify-between">
+                                        <p className="text-sm text-orange-800 font-medium">Your list might need re-sorting.</p>
+                                        <button 
+                                            onClick={handleResort}
+                                            className="bg-orange-500 text-white text-sm font-bold py-1 px-3 rounded-md hover:bg-orange-600 transition"
+                                        >
+                                            Re-Sort Now
+                                        </button>
+                                    </div>
+                                )}
+
+                                {isLoading && <LoadingSpinner small/>}
                                 
                                 <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                                   <label htmlFor="new-item" className="block text-sm font-medium text-gray-700 mb-2">
@@ -544,7 +565,7 @@ export default function App() {
                                 </div>
                                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <button
-                                        onClick={() => handleSortList(rawList)}
+                                        onClick={() => handleSortList(rawList, true)}
                                         disabled={isLoading}
                                         className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300 transition-all duration-300 ease-in-out flex items-center justify-center"
                                     >
