@@ -83,14 +83,27 @@ const EmptyState = () => (
     </div>
 );
 
-const AdBanner = () => (
-    <div className="mt-8 mb-4 p-4 bg-gray-200 rounded-lg text-center">
-        <p className="text-sm font-semibold text-gray-500">Advertisement</p>
-        <div className="h-24 flex items-center justify-center">
-            <p className="text-gray-600">Ad banner placeholder</p>
+// --- MODIFIED: Ad Banner with Live AdSense Code ---
+const AdBanner = () => {
+    useEffect(() => {
+        try {
+            (window.adsbygoogle = window.adsbygoogle || []).push({});
+        } catch (e) {
+            console.error("AdSense error:", e);
+        }
+    }, []);
+
+    return (
+        <div className="mt-8 mb-4 text-center">
+            <ins className="adsbygoogle"
+                 style={{ display: 'block' }}
+                 data-ad-client="ca-pub-8248029170091518"
+                 data-ad-slot="7187747884"
+                 data-ad-format="auto"
+                 data-full-width-responsive="true"></ins>
         </div>
-    </div>
-);
+    );
+};
 
 const AffiliateLinks = () => (
     <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
@@ -121,7 +134,8 @@ export default function App() {
     const [suggestedItems, setSuggestedItems] = useState([]);
     const [isSuggestingItems, setIsSuggestingItems] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
-    const [inputError, setInputError] = useState(false); // For highlighting the input box
+    const [inputError, setInputError] = useState(false);
+    const [isSavingEdit, setIsSavingEdit] = useState(false); // --- NEW: State to prevent double saves ---
 
     const [isPremium, setIsPremium] = useState(() => {
         const saved = localStorage.getItem('isPremium');
@@ -206,13 +220,12 @@ export default function App() {
     };
 
     const handleSortList = async (listToSort) => {
-        // --- MODIFIED: Clear previous errors and validate input first ---
         setError('');
         setInputError(false);
         if (!listToSort.trim()) {
             setError("Please enter a grocery list before sorting.");
             setInputError(true);
-            return; // Stop execution
+            return;
         }
 
         setIsLoading(true);
@@ -240,6 +253,7 @@ export default function App() {
             setSortedList(null);
         } finally {
             setIsLoading(false);
+            setIsSavingEdit(false); // --- NEW: Reset saving state after API call completes ---
         }
     };
 
@@ -291,7 +305,10 @@ export default function App() {
         setSortedList(newSortedList);
     };
 
+    // --- MODIFIED: Added a check to prevent double submissions ---
     const handleEditSave = () => {
+        if (isSavingEdit) return; // Don't do anything if already saving
+        setIsSavingEdit(true); // Set saving state to true
         setEditingItem(null);
         const newRawList = categoryOrder.flatMap(cat => sortedList[cat]?.map(item => item.name) || []).join('\n');
         handleSortList(newRawList);
@@ -317,7 +334,7 @@ export default function App() {
         setRawList('');
         setSortedList(null);
         setError('');
-        setInputError(false); // Clear input error on start over
+        setInputError(false);
         setMealIdea('');
         setSuggestedItems([]);
         setIgnoredSuggestions([]);
@@ -369,53 +386,11 @@ export default function App() {
                 </div>
 
                 <main className="bg-white p-6 rounded-2xl shadow-lg">
-                    {/* --- MODIFIED: This view now shows the error message within it --- */}
-                    {!sortedList && !isLoading && (
-                        <>
-                            {error && <ErrorMessage message={error} />}
-                            <div className="w-full">
-                                <label htmlFor="grocery-list" className="block text-sm font-medium text-gray-700">
-                                    Enter Your List to Sort it Instantly
-                                </label>
-                                <p className="text-xs text-gray-500 mb-2">(e.g., bullet points or comma-separated)</p>
-                                <textarea
-                                    id="grocery-list"
-                                    rows="8"
-                                    className={`p-3 w-full text-base border rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition ${inputError ? 'border-red-500 ring-red-500' : 'border-gray-300'}`}
-                                    placeholder="- Apples&#10;- Milk&#10;- Bread&#10;- Paper towels"
-                                    value={rawList}
-                                    onChange={(e) => setRawList(e.target.value)}
-                                ></textarea>
-                            </div>
-                            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <button
-                                    onClick={() => handleSortList(rawList)}
-                                    disabled={isLoading}
-                                    className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300 transition-all duration-300 ease-in-out flex items-center justify-center"
-                                >
-                                    Sort My List!
-                                </button>
-                                <button
-                                    onClick={handleClearList}
-                                    disabled={isLoading}
-                                    className="w-full bg-gray-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:bg-gray-400 transition-all"
-                                >
-                                    Start Over
-                                </button>
-                            </div>
-                        </>
-                    )}
-
-
-                    <div className="mt-8">
-                        {isLoading && <LoadingSpinner />}
-                        {/* Error message for sorted view */}
-                        {error && sortedList && <ErrorMessage message={error} />}
-                        
-                        {!isLoading && !error && !hasItems(sortedList) && !rawList && <EmptyState />}
-
-                        {sortedList && hasItems(sortedList) && (
+                    {isLoading && !isSavingEdit ? <LoadingSpinner /> : (
+                        hasItems(sortedList) ? (
+                            // --- SORTED LIST VIEW ---
                             <div className="space-y-6">
+                                {error && <ErrorMessage message={error} />}
                                 <h2 className="text-2xl font-bold text-center text-gray-800">Your Organized List</h2>
                                 
                                 <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -549,8 +524,46 @@ export default function App() {
                                     </button>
                                 </div>
                             </div>
-                        )}
-                    </div>
+                        ) : (
+                            // --- INITIAL INPUT VIEW ---
+                            <>
+                                {error && <ErrorMessage message={error} />}
+                                <div className="w-full">
+                                    <label htmlFor="grocery-list" className="block text-sm font-medium text-gray-700">
+                                        Enter Your List to Sort it Instantly
+                                    </label>
+                                    <p className="text-xs text-gray-500 mb-2">(e.g., bullet points or comma-separated)</p>
+                                    <textarea
+                                        id="grocery-list"
+                                        rows="8"
+                                        className={`p-3 w-full text-base border rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition ${inputError ? 'border-red-500 ring-red-500' : 'border-gray-300'}`}
+                                        placeholder="- Apples&#10;- Milk&#10;- Bread&#10;- Paper towels"
+                                        value={rawList}
+                                        onChange={(e) => setRawList(e.target.value)}
+                                    ></textarea>
+                                </div>
+                                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <button
+                                        onClick={() => handleSortList(rawList)}
+                                        disabled={isLoading}
+                                        className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300 transition-all duration-300 ease-in-out flex items-center justify-center"
+                                    >
+                                        Sort My List!
+                                    </button>
+                                    <button
+                                        onClick={handleClearList}
+                                        disabled={isLoading}
+                                        className="w-full bg-gray-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:bg-gray-400 transition-all"
+                                    >
+                                        Start Over
+                                    </button>
+                                </div>
+                                <div className="mt-8">
+                                    <EmptyState />
+                                </div>
+                            </>
+                        )
+                    )}
                 </main>
             </div>
         </div>
