@@ -459,7 +459,7 @@ export default function App() {
                                                 <table className="w-full">
                                                     <tbody>
                                                         {items.map((item, index) => (
-                                                            <tr key={`${category}-${index}-${item.name}`} className="group list-item">
+                                                            <tr key={`${category}-${index}-${item.name}`} className="group">
                                                                 <td className="w-8 py-1 align-top">
                                                                     {isPremium && (
                                                                         <input
