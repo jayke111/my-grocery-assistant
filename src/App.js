@@ -134,7 +134,7 @@ export default function App() {
     const [isSuggestingItems, setIsSuggestingItems] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
     const [inputError, setInputError] = useState(false);
-    const [needsResort, setNeedsResort] = useState(false); // --- NEW: Track if a re-sort is needed ---
+    const [needsResort, setNeedsResort] = useState(false);
 
     const [isPremium, setIsPremium] = useState(() => {
         const saved = localStorage.getItem('isPremium');
@@ -251,16 +251,14 @@ export default function App() {
             if (isInitialSort) {
                 setRawList('');
             }
-            setNeedsResort(false); // --- NEW: Reset the resort flag after a successful sort ---
+            setNeedsResort(false);
         } catch (err) {
             setError(err.message);
-            // --- MODIFIED: Do NOT clear the list on error ---
         } finally {
             setIsLoading(false);
         }
     };
     
-    // --- NEW: Function specifically for re-sorting the existing list ---
     const handleResort = () => {
         const currentListItems = Object.values(sortedList || {}).flat().map(item => item.name).join('\n');
         handleSortList(currentListItems);
@@ -314,7 +312,6 @@ export default function App() {
         setSortedList(newSortedList);
     };
 
-    // --- MODIFIED: Edit save is now local and triggers a "needs resort" flag ---
     const handleEditSave = () => {
         setEditingItem(null);
         setNeedsResort(true);
@@ -334,6 +331,13 @@ export default function App() {
     const handleSuggestionClick = (suggestion) => {
         setNewItem(prev => prev ? `${prev}\n${suggestion}` : suggestion);
         setSuggestedItems(prev => prev.filter(item => item !== suggestion));
+    };
+
+    // --- NEW: Delete Item Function ---
+    const handleDeleteItem = (categoryToDelete, indexToDelete) => {
+        const newSortedList = JSON.parse(JSON.stringify(sortedList));
+        newSortedList[categoryToDelete] = newSortedList[categoryToDelete].filter((_, index) => index !== indexToDelete);
+        setSortedList(newSortedList);
     };
     
     const handleClearList = () => {
@@ -369,7 +373,8 @@ export default function App() {
              <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@700&display=swap');
                 .edit-icon { opacity: 0; transition: opacity 0.2s ease-in-out; }
-                .list-item:hover .edit-icon { opacity: 0.5; }
+                .delete-icon { opacity: 0; transition: opacity 0.2s ease-in-out; }
+                .list-item:hover .edit-icon, .list-item:hover .delete-icon { opacity: 0.5; }
                 .toggle-checkbox:checked { right: 0; border-color: #4f46e5; }
                 .toggle-checkbox:checked + .toggle-label { background-color: #4f46e5; }
             `}</style>
@@ -469,7 +474,7 @@ export default function App() {
                                                 <table className="w-full">
                                                     <tbody>
                                                         {items.map((item, index) => (
-                                                            <tr key={`${category}-${index}-${item.name}`} className="group">
+                                                            <tr key={`${category}-${index}-${item.name}`} className="group list-item">
                                                                 <td className="w-8 py-1 align-top">
                                                                     {isPremium && (
                                                                         <input
@@ -499,9 +504,14 @@ export default function App() {
                                                                             >
                                                                                 {item.name}
                                                                             </span>
-                                                                            <svg onClick={() => handleEditStart(category, index)} xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2 text-gray-400 cursor-pointer edit-icon flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L16.732 3.732z" />
-                                                                            </svg>
+                                                                            <div className="flex items-center space-x-2">
+                                                                                <svg onClick={() => handleEditStart(category, index)} xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 cursor-pointer edit-icon flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L16.732 3.732z" />
+                                                                                </svg>
+                                                                                <svg onClick={() => handleDeleteItem(category, index)} xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 cursor-pointer delete-icon hover:text-red-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                                                                </svg>
+                                                                            </div>
                                                                         </div>
                                                                     )}
                                                                 </td>
