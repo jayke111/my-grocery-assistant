@@ -22,10 +22,19 @@ const Icon = ({ category }) => {
 
 const Header = () => (
   <header className="text-center py-6 md:py-8">
-    <h1 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600" style={{ fontFamily: "'Poppins', sans-serif" }}>
-      My Grocery Assistant
-    </h1>
-    <p className="mt-3 text-lg text-gray-600">Shopping smarter, not harder.</p>
+    <div className="flex justify-center items-center gap-x-3">
+        {/* Simple SVG Logo for CartSpark */}
+        <svg className="h-10 w-10 md:h-12 md:w-12 text-blue-600" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <circle cx="9" cy="21" r="1" stroke="currentColor" strokeWidth="2"/>
+            <circle cx="20" cy="21" r="1" stroke="currentColor" strokeWidth="2"/>
+            <path d="M15 6.5L16.5 4L18 6.5L19.5 4L21 6.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        <h1 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600" style={{ fontFamily: "'Poppins', sans-serif" }}>
+          CartSpark
+        </h1>
+    </div>
+    <p className="mt-3 text-lg text-gray-600">Your Grocery List AI Companion</p>
   </header>
 );
 
@@ -501,10 +510,10 @@ export default function App() {
                                                                                 {item.name}
                                                                             </span>
                                                                             <div className="flex items-center flex-shrink-0 ml-4 space-x-3">
-                                                                                <svg onClick={() => handleEditStart(category, index)} xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 hover:text-blue-600 cursor-pointer transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                <svg onClick={() => handleEditStart(category, index)} xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 hover:text-blue-600 cursor-pointer" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L16.732 3.732z" />
                                                                                 </svg>
-                                                                                <svg onClick={() => handleDeleteItem(category, index)} xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 hover:text-red-600 cursor-pointer transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                <svg onClick={() => handleDeleteItem(category, index)} xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 hover:text-red-600 cursor-pointer" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                                                                                 </svg>
                                                                             </div>
