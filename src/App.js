@@ -34,7 +34,7 @@ const Header = () => (
           CartSpark
         </h1>
     </div>
-    <p className="mt-3 text-lg text-gray-600">Your Grocery List AI Companion</p>
+    <p className="mt-3 text-lg text-gray-600">Your <span className="font-semibold text-green-600">FREE</span> Grocery List AI Companion</p>
   </header>
 );
 
@@ -125,6 +125,89 @@ const AffiliateLinks = () => (
             </a>
         </div>
     </div>
+);
+
+// --- NEW: Content Sections for AdSense ---
+
+const HowItWorks = () => (
+    <div className="mt-12">
+        <h2 className="text-2xl font-bold text-center text-gray-800">How It Works</h2>
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="text-center">
+                <div className="flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 text-blue-600 mx-auto">
+                    <span className="text-xl font-bold">1</span>
+                </div>
+                <h3 className="mt-4 text-lg font-semibold">Enter Your List</h3>
+                <p className="mt-1 text-gray-600">Type or paste your grocery list in any order.</p>
+            </div>
+            <div className="text-center">
+                <div className="flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 text-blue-600 mx-auto">
+                    <span className="text-xl font-bold">2</span>
+                </div>
+                <h3 className="mt-4 text-lg font-semibold">Sort Instantly</h3>
+                <p className="mt-1 text-gray-600">Our AI organizes your items by grocery store category.</p>
+            </div>
+            <div className="text-center">
+                <div className="flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 text-blue-600 mx-auto">
+                    <span className="text-xl font-bold">3</span>
+                </div>
+                <h3 className="mt-4 text-lg font-semibold">Shop Smarter</h3>
+                <p className="mt-1 text-gray-600">Save time with an organized list, get meal ideas, and more!</p>
+            </div>
+        </div>
+    </div>
+);
+
+const Features = () => (
+    <div className="mt-12 py-8 bg-white rounded-2xl shadow-lg">
+        <div className="max-w-xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-2xl font-bold text-center text-gray-800">Your Ultimate Shopping Companion</h2>
+            <p className="mt-4 text-center text-gray-600">
+                CartSpark does more than just sort your list. It's packed with smart features to make every grocery trip easier.
+            </p>
+            <div className="mt-8 space-y-6">
+                <div className="flex">
+                    <div className="flex-shrink-0">
+                        <div className="flex items-center justify-center h-10 w-10 rounded-md bg-purple-500 text-white">✨</div>
+                    </div>
+                    <div className="ml-4">
+                        <h4 className="text-lg font-bold">Meal Ideas</h4>
+                        <p className="mt-1 text-gray-600">Stuck on what to make for dinner? Get instant recipe suggestions based on the items in your cart.</p>
+                    </div>
+                </div>
+                <div className="flex">
+                    <div className="flex-shrink-0">
+                        <div className="flex items-center justify-center h-10 w-10 rounded-md bg-teal-500 text-white">💡</div>
+                    </div>
+                    <div className="ml-4">
+                        <h4 className="text-lg font-bold">Smart Suggestions</h4>
+                        <p className="mt-1 text-gray-600">Forget something? Our AI suggests complementary items you might have missed, like getting garlic for your pasta sauce.</p>
+                    </div>
+                </div>
+                <div className="flex">
+                    <div className="flex-shrink-0">
+                        <div className="flex items-center justify-center h-10 w-10 rounded-md bg-blue-500 text-white">✅</div>
+                    </div>
+                    <div className="ml-4">
+                        <h4 className="text-lg font-bold">Interactive Checklist</h4>
+                        <p className="mt-1 text-gray-600">Check off items as you shop. Your list is automatically saved to your device so you can pick up right where you left off.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+);
+
+const AppFooter = () => (
+    <footer className="mt-12 text-center text-gray-500 text-sm">
+        <div className="flex justify-center space-x-4">
+            {/* In a real app, these would link to actual pages */}
+            <a href="#privacy" className="hover:text-gray-800">Privacy Policy</a>
+            <span>&middot;</span>
+            <a href="mailto:support@cartspark.io" className="hover:text-gray-800">Contact Us</a>
+        </div>
+        <p className="mt-4">&copy; {new Date().getFullYear()} CartSpark. All Rights Reserved.</p>
+    </footer>
 );
 
 
@@ -594,13 +677,14 @@ export default function App() {
                                         Start Over
                                     </button>
                                 </div>
-                                <div className="mt-8">
-                                    <EmptyState />
-                                </div>
+                                {/* --- NEW: Added content sections --- */}
+                                <HowItWorks />
+                                <Features />
                             </>
                         )
                     )}
                 </main>
+                <AppFooter />
             </div>
         </div>
     );
