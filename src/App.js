@@ -20,10 +20,9 @@ const Icon = ({ category }) => {
   return <span className="text-2xl mr-3">{emojiMap[category] || '🛒'}</span>;
 };
 
-const Header = () => (
+const Header = ({ onTitleClick }) => (
   <header className="text-center py-6 md:py-8">
-    <div className="flex justify-center items-center gap-x-3">
-        {/* Simple SVG Logo for CartSpark */}
+    <div className="flex justify-center items-center gap-x-3 cursor-pointer" onClick={onTitleClick}>
         <svg className="h-10 w-10 md:h-12 md:w-12 text-blue-600" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             <circle cx="9" cy="21" r="1" stroke="currentColor" strokeWidth="2"/>
@@ -127,8 +126,6 @@ const AffiliateLinks = () => (
     </div>
 );
 
-// --- NEW: Content Sections for AdSense ---
-
 const HowItWorks = () => (
     <div className="mt-12">
         <h2 className="text-2xl font-bold text-center text-gray-800">How It Works</h2>
@@ -198,13 +195,83 @@ const Features = () => (
     </div>
 );
 
-const AppFooter = () => (
+// --- NEW: Page Components with Back Button ---
+const AboutPage = ({ setPage }) => (
+    <div className="bg-white p-6 md:p-8 rounded-2xl shadow-lg prose max-w-none">
+        <button onClick={() => setPage('home')} className="mb-6 text-blue-600 hover:text-blue-800 font-semibold">
+            &larr; Back to List
+        </button>
+        <h2>About CartSpark</h2>
+        <p><strong>Our Mission: Smarter Shopping, Not Harder Shopping.</strong></p>
+        <p>Welcome to CartSpark, your new grocery list AI companion! We believe that a trip to the grocery store shouldn't be a chore. It should be simple, efficient, and maybe even a little bit fun.</p>
+        <p>CartSpark was born from a simple idea: what if your grocery list could think for you? We were tired of backtracking through crowded aisles for a forgotten item or standing in the middle of the store wondering what to make for dinner. We knew there had to be a better way.</p>
+        <p>Using the power of artificial intelligence, CartSpark instantly transforms your scattered shopping list into a perfectly organized, aisle-by-aisle path through the store. But we didn't stop there.</p>
+        <h4>With CartSpark, you can:</h4>
+        <ul>
+            <li><strong>Sort Instantly:</strong> Automatically categorize your items into Produce, Dairy, Pantry, and more.</li>
+            <li><strong>Get Inspired:</strong> Use our "Get Meal Idea" feature to generate a simple recipe based on what's already on your list.</li>
+            <li><strong>Never Forget an Item:</strong> Our "Suggest" feature intelligently recommends related items you might have missed.</li>
+            <li><strong>Shop Your Way:</strong> Edit, add, delete, and check off items on the fly with a simple, interactive list that saves to your device.</li>
+        </ul>
+        <p>Our goal is to give you back your time and mental energy. Whether you're a busy parent, a student on a budget, or just someone who wants a more organized life, CartSpark is here to help you shop smarter, not harder.</p>
+        <p>Thank you for joining us on this journey!</p>
+    </div>
+);
+
+const PrivacyPolicyPage = ({ setPage }) => (
+    <div className="bg-white p-6 md:p-8 rounded-2xl shadow-lg prose max-w-none">
+        <button onClick={() => setPage('home')} className="mb-6 text-blue-600 hover:text-blue-800 font-semibold">
+            &larr; Back to List
+        </button>
+        <h2>Privacy Policy for CartSpark</h2>
+        <p><em>Last Updated: July 14, 2025</em></p>
+        <p>Your privacy is important to us. This Privacy Policy explains how CartSpark collects, uses, and protects your information when you use our website.</p>
+        
+        <h3>1. Information We Collect</h3>
+        <p>To provide a seamless and personalized experience, CartSpark uses your browser's <code>localStorage</code>. This is a standard web feature that allows our website to save small pieces of information directly on your device. We store the following:</p>
+        <ul>
+            <li><strong>Your Current Grocery List:</strong> This includes the item names, categories, and whether an item has been checked off. This allows you to close your browser or refresh the page and have your list waiting for you when you return.</li>
+            <li><strong>Your Preferences:</strong> We save your choice for enabling or disabling the "Checkboxes" feature.</li>
+            <li><strong>Ignored Suggestions:</strong> To improve your experience, we keep a temporary record of AI-generated suggestions that you have already seen so we don't show them to you again.</li>
+        </ul>
+        <p><strong>This information is stored exclusively on your device's browser. We do not have a central server, and we cannot see, access, or share your personal grocery lists.</strong></p>
+        
+        <h3>2. How We Use Information</h3>
+        <p>The information stored locally is used solely to provide and enhance the functionality of the CartSpark application:</p>
+        <ul>
+            <li>To save and display your sorted grocery list.</li>
+            <li>To remember your user interface preferences.</li>
+            <li>To power our "Get Meal Idea" and "Suggest Items" features by sending your <em>anonymized</em> list content to the Google Gemini API for processing.</li>
+        </ul>
+
+        <h3>3. Third-Party Services</h3>
+        <p>CartSpark uses the following third-party services:</p>
+        <ul>
+            <li><strong>Google Gemini API:</strong> To power the AI sorting, meal ideas, and item suggestions. Your list content is sent to Google for processing, governed by Google's Privacy Policy.</li>
+            <li><strong>Google AdSense:</strong> We use Google AdSense to display advertisements on our site. Google may use cookies to serve ads based on a user's prior visits to our website or other websites. You can opt out of personalized advertising by visiting <a href="https://www.google.com/settings/ads" target="_blank" rel="noopener noreferrer">Google's Ads Settings</a>.</li>
+            <li><strong>Affiliate Links:</strong> We may include affiliate links to third-party services like Instacart or Uber Eats. If you click on these links and make a purchase, we may earn a commission at no extra cost to you. These services are governed by their own privacy policies.</li>
+        </ul>
+
+        <h3>4. Clearing Your Data</h3>
+        <p>You have full control over your data. Clicking the <strong>"Start New List"</strong> or <strong>"Start Over"</strong> button within the application will permanently delete all of the above information (your list, preferences, and suggestion history) from your browser's storage.</p>
+
+        <h3>5. Changes to This Policy</h3>
+        <p>We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page.</p>
+
+        <h3>6. Contact Us</h3>
+        <p>If you have any questions about this Privacy Policy, please contact us at: <a href="mailto:contactus@cartspark.io">contactus@cartspark.io</a></p>
+    </div>
+);
+
+
+const AppFooter = ({ setPage }) => (
     <footer className="mt-12 text-center text-gray-500 text-sm">
         <div className="flex justify-center space-x-4">
-            {/* In a real app, these would link to actual pages */}
-            <a href="#privacy" className="hover:text-gray-800">Privacy Policy</a>
+            <button onClick={() => setPage('privacy')} className="hover:text-gray-800 underline">Privacy Policy</button>
             <span>&middot;</span>
-            <a href="mailto:support@cartspark.io" className="hover:text-gray-800">Contact Us</a>
+            <button onClick={() => setPage('about')} className="hover:text-gray-800 underline">About Us</button>
+            <span>&middot;</span>
+            <a href="mailto:contactus@cartspark.io" className="hover:text-gray-800">Contact Us</a>
         </div>
         <p className="mt-4">&copy; {new Date().getFullYear()} CartSpark. All Rights Reserved.</p>
     </footer>
@@ -216,6 +283,7 @@ const AppFooter = () => (
 export default function App() {
     const apiKey = "AIzaSyDUsA1lOW3tvCN5VIdk-21pXkpIDJ6QlvU"; 
 
+    const [page, setPage] = useState('home');
     const [rawList, setRawList] = useState('');
     const [newItem, setNewItem] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -459,232 +527,257 @@ export default function App() {
             .join('\n\n');
     };
 
+    const renderPageContent = () => {
+        switch (page) {
+            case 'about':
+                return <AboutPage setPage={setPage} />;
+            case 'privacy':
+                return <PrivacyPolicyPage setPage={setPage} />;
+            case 'home':
+            default:
+                return (
+                    <>
+                        {isLoading && !sortedList ? <LoadingSpinner /> : (
+                            hasItems(sortedList) ? (
+                                // --- SORTED LIST VIEW ---
+                                <div className="space-y-6">
+                                    {error && <ErrorMessage message={error} />}
+                                    <h2 className="text-2xl font-bold text-center text-gray-800">Your Organized List</h2>
+                                    
+                                    {needsResort && !isLoading && (
+                                        <div className="p-3 bg-orange-100 border border-orange-300 rounded-lg flex items-center justify-between">
+                                            <p className="text-sm text-orange-800 font-medium">Your list might need re-sorting.</p>
+                                            <button 
+                                                onClick={handleResort}
+                                                className="bg-orange-500 text-white text-sm font-bold py-1 px-3 rounded-md hover:bg-orange-600 transition"
+                                            >
+                                                Re-Sort Now
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {isLoading && <LoadingSpinner small/>}
+                                    
+                                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                      <label htmlFor="new-item" className="block text-sm font-medium text-gray-700 mb-2">
+                                        Add more items:
+                                      </label>
+                                      <div className="flex flex-col sm:flex-row sm:space-x-2">
+                                          <textarea
+                                              id="new-item"
+                                              rows="2"
+                                              className="flex-grow p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 mb-2 sm:mb-0"
+                                              placeholder="Type here or click suggestions below"
+                                              value={newItem}
+                                              onChange={(e) => setNewItem(e.target.value)}
+                                          />
+                                          <div className="flex space-x-2">
+                                            <button
+                                                onClick={handleAddNewItem}
+                                                disabled={isLoading}
+                                                className="flex-1 bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-indigo-700 disabled:bg-indigo-400 transition"
+                                            >
+                                                Add
+                                            </button>
+                                            <button
+                                                onClick={handleSuggestItems}
+                                                disabled={isSuggestingItems || isLoading}
+                                                className="flex-1 bg-teal-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-teal-600 disabled:bg-teal-300 transition"
+                                                title="Suggest items based on your list"
+                                            >
+                                                ✨ Suggest
+                                            </button>
+                                          </div>
+                                      </div>
+                                      {isSuggestingItems && <LoadingSpinner small />}
+                                      {suggestedItems.length > 0 && (
+                                          <div className="mt-3 flex flex-wrap gap-2">
+                                              {suggestedItems.map((suggestion, i) => (
+                                                  <button key={i} onClick={() => handleSuggestionClick(suggestion)} className="bg-teal-100 text-teal-800 text-sm font-medium px-3 py-1 rounded-full hover:bg-teal-200 transition">
+                                                      + {suggestion}
+                                                  </button>
+                                              ))}
+                                          </div>
+                                      )}
+                                    </div>
+
+                                    {categoryOrder.map(category => {
+                                        const items = sortedList[category];
+                                        if (items && items.length > 0) {
+                                            return (
+                                                <div key={category} className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200">
+                                                    <h3 className="text-xl font-semibold mb-3 flex items-center text-gray-700">
+                                                      <Icon category={category} />
+                                                      {category}
+                                                    </h3>
+                                                    <table className="w-full">
+                                                        <tbody>
+                                                            {items.map((item, index) => (
+                                                                <tr key={`${category}-${index}-${item.name}`}>
+                                                                    <td className="w-8 py-1 align-top">
+                                                                        {isPremium && (
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={item.checked}
+                                                                                onChange={() => handleToggleCheck(category, index)}
+                                                                                className="h-5 w-5 mt-1 rounded border-gray-400 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                                                            />
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="py-1">
+                                                                        {editingItem?.category === category && editingItem?.index === index ? (
+                                                                            <input
+                                                                                type="text"
+                                                                                value={item.name}
+                                                                                onChange={(e) => handleEditChange(e.target.value, category, index)}
+                                                                                onBlur={handleEditSave}
+                                                                                onKeyPress={(e) => { if (e.key === 'Enter') handleEditSave() }}
+                                                                                autoFocus
+                                                                                className="p-1 rounded-md border-gray-300 shadow-sm w-full"
+                                                                            />
+                                                                        ) : (
+                                                                            <div className="flex justify-between items-center w-full">
+                                                                                <span 
+                                                                                    className={`cursor-pointer flex-grow ${item.checked ? 'line-through text-gray-400' : ''}`}
+                                                                                    onClick={() => handleEditStart(category, index)}
+                                                                                >
+                                                                                    {item.name}
+                                                                                </span>
+                                                                                <div className="flex items-center flex-shrink-0 ml-4 space-x-3">
+                                                                                    <svg onClick={() => handleEditStart(category, index)} xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 hover:text-blue-600 cursor-pointer" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L16.732 3.732z" />
+                                                                                    </svg>
+                                                                                    <svg onClick={() => handleDeleteItem(category, index)} xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 hover:text-red-600 cursor-pointer" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                                                                    </svg>
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    })}
+                                    
+                                    <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                                      <button
+                                          onClick={handleGetMealIdea}
+                                          disabled={isGeneratingMeal || isLoading}
+                                          className="w-full bg-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-700 disabled:bg-purple-300 transition-all"
+                                      >
+                                          ✨ Get Meal Idea
+                                      </button>
+                                      {isGeneratingMeal && <LoadingSpinner small />}
+                                      {mealIdea && (
+                                          <div className="mt-4 p-4 bg-white rounded-md border">
+                                              <h4 className="font-semibold text-lg text-purple-800">Recipe Suggestion:</h4>
+                                              <p className="mt-2 text-gray-700 whitespace-pre-wrap">{mealIdea}</p>
+                                          </div>
+                                      )}
+                                    </div>
+
+                                    <AffiliateLinks />
+                                    <AdBanner />
+                                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <CopyButton textToCopy={generatePlainTextList()} />
+                                        <button
+                                            onClick={handleClearList}
+                                            disabled={isLoading}
+                                            className="w-full bg-gray-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:bg-gray-400 transition-all"
+                                        >
+                                            Start New List
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                // --- INITIAL INPUT VIEW ---
+                                <>
+                                    {error && <ErrorMessage message={error} />}
+                                    <div className="w-full">
+                                        <label htmlFor="grocery-list" className="block text-sm font-medium text-gray-700">
+                                            Enter Your List to Sort it Instantly
+                                        </label>
+                                        <p className="text-xs text-gray-500 mb-2">(e.g., bullet points or comma-separated)</p>
+                                        <textarea
+                                            id="grocery-list"
+                                            rows="8"
+                                            className={`p-3 w-full text-base border rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition ${inputError ? 'border-red-500 ring-red-500' : 'border-gray-300'}`}
+                                            placeholder="- Apples&#10;- Milk&#10;- Bread&#10;- Paper towels"
+                                            value={rawList}
+                                            onChange={(e) => setRawList(e.target.value)}
+                                        ></textarea>
+                                    </div>
+                                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <button
+                                            onClick={() => handleSortList(rawList, true)}
+                                            disabled={isLoading}
+                                            className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300 transition-all duration-300 ease-in-out flex items-center justify-center"
+                                        >
+                                            Sort My List!
+                                        </button>
+                                        <button
+                                            onClick={handleClearList}
+                                            disabled={isLoading}
+                                            className="w-full bg-gray-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:bg-gray-400 transition-all"
+                                        >
+                                            Start Over
+                                        </button>
+                                    </div>
+                                    <HowItWorks />
+                                    <Features />
+                                </>
+                            )
+                        )}
+                    </>
+                );
+        }
+    };
+
     return (
         <div className="bg-gray-50 min-h-screen font-sans antialiased text-gray-900 pb-12">
              <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@700&display=swap');
                 .toggle-checkbox:checked { right: 0; border-color: #4f46e5; }
                 .toggle-checkbox:checked + .toggle-label { background-color: #4f46e5; }
-            `}</style>
+                .prose { max-width: 65ch; margin-left: auto; margin-right: auto; color: #374151; }
+                .prose h2 { font-size: 1.5rem; font-weight: 700; margin-bottom: 1em; }
+                .prose h3 { font-size: 1.25rem; font-weight: 600; margin-bottom: 1em; }
+                .prose h4 { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5em; }
+                .prose p { margin-bottom: 1.25em; line-height: 1.6; }
+                .prose ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 1.25em; }
+                .prose li { margin-bottom: 0.5em; }
+                .prose a { color: #4f46e5; text-decoration: underline; }
+             `}</style>
             <div className="container mx-auto p-4 max-w-2xl">
-                <Header />
+                <Header onTitleClick={() => setPage('home')} />
 
-                <div className="flex justify-center items-center mb-6 bg-yellow-100 border border-yellow-300 text-yellow-800 p-3 rounded-lg">
-                    <label htmlFor="premiumToggle" className="mr-3 font-semibold">Enable Checkboxes</label>
-                    <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                        <input 
-                            type="checkbox" 
-                            name="premiumToggle" 
-                            id="premiumToggle"
-                            checked={isPremium}
-                            onChange={togglePremium}
-                            className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
-                        />
-                        <label htmlFor="premiumToggle" className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                {page === 'home' && (
+                    <div className="flex justify-center items-center mb-6 bg-yellow-100 border border-yellow-300 text-yellow-800 p-3 rounded-lg">
+                        <label htmlFor="premiumToggle" className="mr-3 font-semibold">Enable Checkboxes</label>
+                        <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                            <input 
+                                type="checkbox" 
+                                name="premiumToggle" 
+                                id="premiumToggle"
+                                checked={isPremium}
+                                onChange={togglePremium}
+                                className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                            />
+                            <label htmlFor="premiumToggle" className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                        </div>
+                         <span className="text-sm">{isPremium ? "ON" : "OFF"}</span>
                     </div>
-                     <span className="text-sm">{isPremium ? "ON" : "OFF"}</span>
-                </div>
+                )}
 
-                <main className="bg-white p-6 rounded-2xl shadow-lg">
-                    {isLoading && !sortedList ? <LoadingSpinner /> : (
-                        hasItems(sortedList) ? (
-                            // --- SORTED LIST VIEW ---
-                            <div className="space-y-6">
-                                {error && <ErrorMessage message={error} />}
-                                <h2 className="text-2xl font-bold text-center text-gray-800">Your Organized List</h2>
-                                
-                                {needsResort && !isLoading && (
-                                    <div className="p-3 bg-orange-100 border border-orange-300 rounded-lg flex items-center justify-between">
-                                        <p className="text-sm text-orange-800 font-medium">Your list might need re-sorting.</p>
-                                        <button 
-                                            onClick={handleResort}
-                                            className="bg-orange-500 text-white text-sm font-bold py-1 px-3 rounded-md hover:bg-orange-600 transition"
-                                        >
-                                            Re-Sort Now
-                                        </button>
-                                    </div>
-                                )}
-
-                                {isLoading && <LoadingSpinner small/>}
-                                
-                                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                                  <label htmlFor="new-item" className="block text-sm font-medium text-gray-700 mb-2">
-                                    Add more items:
-                                  </label>
-                                  <div className="flex flex-col sm:flex-row sm:space-x-2">
-                                      <textarea
-                                          id="new-item"
-                                          rows="2"
-                                          className="flex-grow p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 mb-2 sm:mb-0"
-                                          placeholder="Type here or click suggestions below"
-                                          value={newItem}
-                                          onChange={(e) => setNewItem(e.target.value)}
-                                      />
-                                      <div className="flex space-x-2">
-                                        <button
-                                            onClick={handleAddNewItem}
-                                            disabled={isLoading}
-                                            className="flex-1 bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-indigo-700 disabled:bg-indigo-400 transition"
-                                        >
-                                            Add
-                                        </button>
-                                        <button
-                                            onClick={handleSuggestItems}
-                                            disabled={isSuggestingItems || isLoading}
-                                            className="flex-1 bg-teal-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-teal-600 disabled:bg-teal-300 transition"
-                                            title="Suggest items based on your list"
-                                        >
-                                            ✨ Suggest
-                                        </button>
-                                      </div>
-                                  </div>
-                                  {isSuggestingItems && <LoadingSpinner small />}
-                                  {suggestedItems.length > 0 && (
-                                      <div className="mt-3 flex flex-wrap gap-2">
-                                          {suggestedItems.map((suggestion, i) => (
-                                              <button key={i} onClick={() => handleSuggestionClick(suggestion)} className="bg-teal-100 text-teal-800 text-sm font-medium px-3 py-1 rounded-full hover:bg-teal-200 transition">
-                                                  + {suggestion}
-                                              </button>
-                                          ))}
-                                      </div>
-                                  )}
-                                </div>
-
-                                {categoryOrder.map(category => {
-                                    const items = sortedList[category];
-                                    if (items && items.length > 0) {
-                                        return (
-                                            <div key={category} className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200">
-                                                <h3 className="text-xl font-semibold mb-3 flex items-center text-gray-700">
-                                                  <Icon category={category} />
-                                                  {category}
-                                                </h3>
-                                                <table className="w-full">
-                                                    <tbody>
-                                                        {items.map((item, index) => (
-                                                            <tr key={`${category}-${index}-${item.name}`}>
-                                                                <td className="w-8 py-1 align-top">
-                                                                    {isPremium && (
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            checked={item.checked}
-                                                                            onChange={() => handleToggleCheck(category, index)}
-                                                                            className="h-5 w-5 mt-1 rounded border-gray-400 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                                                                        />
-                                                                    )}
-                                                                </td>
-                                                                <td className="py-1">
-                                                                    {editingItem?.category === category && editingItem?.index === index ? (
-                                                                        <input
-                                                                            type="text"
-                                                                            value={item.name}
-                                                                            onChange={(e) => handleEditChange(e.target.value, category, index)}
-                                                                            onBlur={handleEditSave}
-                                                                            onKeyPress={(e) => { if (e.key === 'Enter') handleEditSave() }}
-                                                                            autoFocus
-                                                                            className="p-1 rounded-md border-gray-300 shadow-sm w-full"
-                                                                        />
-                                                                    ) : (
-                                                                        <div className="flex justify-between items-center w-full">
-                                                                            <span 
-                                                                                className={`cursor-pointer flex-grow ${item.checked ? 'line-through text-gray-400' : ''}`}
-                                                                                onClick={() => handleEditStart(category, index)}
-                                                                            >
-                                                                                {item.name}
-                                                                            </span>
-                                                                            <div className="flex items-center flex-shrink-0 ml-4 space-x-3">
-                                                                                <svg onClick={() => handleEditStart(category, index)} xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 hover:text-blue-600 cursor-pointer" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L16.732 3.732z" />
-                                                                                </svg>
-                                                                                <svg onClick={() => handleDeleteItem(category, index)} xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 hover:text-red-600 cursor-pointer" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                                                                                </svg>
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-                                                                </td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        );
-                                    }
-                                    return null;
-                                })}
-                                
-                                <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
-                                  <button
-                                      onClick={handleGetMealIdea}
-                                      disabled={isGeneratingMeal || isLoading}
-                                      className="w-full bg-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-700 disabled:bg-purple-300 transition-all"
-                                  >
-                                      ✨ Get Meal Idea
-                                  </button>
-                                  {isGeneratingMeal && <LoadingSpinner small />}
-                                  {mealIdea && (
-                                      <div className="mt-4 p-4 bg-white rounded-md border">
-                                          <h4 className="font-semibold text-lg text-purple-800">Recipe Suggestion:</h4>
-                                          <p className="mt-2 text-gray-700 whitespace-pre-wrap">{mealIdea}</p>
-                                      </div>
-                                  )}
-                                </div>
-
-                                <AffiliateLinks />
-                                <AdBanner />
-                                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <CopyButton textToCopy={generatePlainTextList()} />
-                                    <button
-                                        onClick={handleClearList}
-                                        disabled={isLoading}
-                                        className="w-full bg-gray-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:bg-gray-400 transition-all"
-                                    >
-                                        Start New List
-                                    </button>
-                                </div>
-                            </div>
-                        ) : (
-                            // --- INITIAL INPUT VIEW ---
-                            <>
-                                {error && <ErrorMessage message={error} />}
-                                <div className="w-full">
-                                    <label htmlFor="grocery-list" className="block text-sm font-medium text-gray-700">
-                                        Enter Your List to Sort it Instantly
-                                    </label>
-                                    <p className="text-xs text-gray-500 mb-2">(e.g., bullet points or comma-separated)</p>
-                                    <textarea
-                                        id="grocery-list"
-                                        rows="8"
-                                        className={`p-3 w-full text-base border rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition ${inputError ? 'border-red-500 ring-red-500' : 'border-gray-300'}`}
-                                        placeholder="- Apples&#10;- Milk&#10;- Bread&#10;- Paper towels"
-                                        value={rawList}
-                                        onChange={(e) => setRawList(e.target.value)}
-                                    ></textarea>
-                                </div>
-                                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <button
-                                        onClick={() => handleSortList(rawList, true)}
-                                        disabled={isLoading}
-                                        className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300 transition-all duration-300 ease-in-out flex items-center justify-center"
-                                    >
-                                        Sort My List!
-                                    </button>
-                                    <button
-                                        onClick={handleClearList}
-                                        disabled={isLoading}
-                                        className="w-full bg-gray-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:bg-gray-400 transition-all"
-                                    >
-                                        Start Over
-                                    </button>
-                                </div>
-                                {/* --- NEW: Added content sections --- */}
-                                <HowItWorks />
-                                <Features />
-                            </>
-                        )
-                    )}
+                <main>
+                    {renderPageContent()}
                 </main>
-                <AppFooter />
+                <AppFooter setPage={setPage} />
             </div>
         </div>
     );
