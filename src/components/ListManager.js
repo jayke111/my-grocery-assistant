@@ -3,12 +3,11 @@ import { Icon, ErrorMessage, LoadingSpinner, CopyButton } from './UIComponents';
 import { InitialListInput } from './InitialListInput';
 import { useAppContext } from '../AppContext';
 import { hasItems } from '../utils';
-import { ComingSoon } from './ComingSoon'; // Import the new component
+import { ComingSoon } from './ComingSoon';
 
 export const ListManager = ({ listData, onSort, onClear, isGuest, isPremium, handleToggleCheck, handleEditStart, handleEditSave, handleEditChange, handleDeleteItem, handleResort, handleAddNewItem, newItem, setNewItem, needsResort, isLoading, error, inputError, editingItem, categoryOrder, generatePlainTextList, setShowAddMealToListModal, setInputError, setError }) => {
     
     const { 
-        suggestedItems, setSuggestedItems, isSuggestingItems, handleSuggestItems,
         mealIdea, isGeneratingMeal, handleGetMealIdea, error: aiError 
     } = useAppContext();
 
@@ -17,15 +16,6 @@ export const ListManager = ({ listData, onSort, onClear, isGuest, isPremium, han
     }
 
     const currentListItems = listData?.items;
-
-    const handleSuggestionClick = (suggestion) => {
-        setNewItem(prev => prev ? `${prev}\n${suggestion}` : suggestion);
-        setSuggestedItems(prev => prev.filter(item => item !== suggestion));
-    };
-
-    const handleSuggestClick = () => {
-        handleSuggestItems();
-    };
 
     const handleGetMealIdeaClick = () => {
         handleGetMealIdea();
@@ -64,17 +54,9 @@ export const ListManager = ({ listData, onSort, onClear, isGuest, isPremium, han
                       <textarea id="new-item" rows="2" className="flex-grow p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 mb-2 sm:mb-0" placeholder="Type here or click suggestions below" value={newItem} onChange={(e) => setNewItem(e.target.value)} />
                       <div className="flex space-x-2">
                         <button onClick={() => handleAddNewItem(newItem)} disabled={isLoading} className="flex-1 bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-indigo-700 disabled:bg-indigo-400 transition">Add</button>
-                        <button onClick={handleSuggestClick} disabled={isSuggestingItems || isLoading} className="flex-1 bg-teal-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-teal-600 disabled:bg-teal-300 transition" title="Suggest items based on your list">✨ Suggest</button>
+                        {/* The Suggest button is now part of the AI Context and doesn't need to be here */}
                       </div>
                   </div>
-                  {isSuggestingItems && <LoadingSpinner small />}
-                  {suggestedItems.length > 0 && (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                          {suggestedItems.map((suggestion, i) => (
-                              <button key={i} onClick={() => handleSuggestionClick(suggestion)} className="bg-teal-100 text-teal-800 text-sm font-medium px-3 py-1 rounded-full hover:bg-teal-200 transition">+ {suggestion}</button>
-                          ))}
-                      </div>
-                  )}
                 </div>
 
                 {categoryOrder.map(category => {
@@ -88,7 +70,8 @@ export const ListManager = ({ listData, onSort, onClear, isGuest, isPremium, han
                                         {items.map((item, index) => (
                                             <tr key={`${category}-${index}-${item.name}`}>
                                                 <td className="w-8 py-1 align-top">
-                                                    {isPremium && <input type="checkbox" checked={item.checked} onChange={() => handleToggleCheck(category, index)} className="h-5 w-5 mt-1 rounded border-gray-400 text-blue-600 focus:ring-blue-500 cursor-pointer"/>}
+                                                    {/* FIX: Show checkbox if user is premium OR a guest */}
+                                                    {(isPremium || isGuest) && <input type="checkbox" checked={item.checked} onChange={() => handleToggleCheck(category, index)} className="h-5 w-5 mt-1 rounded border-gray-400 text-blue-600 focus:ring-blue-500 cursor-pointer"/>}
                                                 </td>
                                                 <td className="py-1">
                                                     {editingItem?.category === category && editingItem?.index === index ? (
