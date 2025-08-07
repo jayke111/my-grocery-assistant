@@ -30,17 +30,19 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: 'github-actions-deployer@cartspark-85cbc.iam.gserviceaccount.com'
 
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
       - name: Install dependencies for functions
         run: npm --prefix functions install
 
-      # --- THIS IS THE FINAL, CORRECTED DEPLOY STEP ---
-      # We use a dedicated action that is designed to work with the authenticated session.
-      # The unnecessary 'env' block has been removed.
       - name: Deploy to Firebase
-        uses: w9jds/firebase-action@master
-        with:
-          action: deploy
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          # The firebase_token is automatically handled by the action using the authenticated session
-          firebase_token: ${{ secrets.FIREBASE_TOKEN }}
-          only: 'functions'
+        run: firebase deploy --project ${{ secrets.GCP_PROJECT_ID }} --only functions --force
+
+      # --- THIS IS THE NEW, FINAL STEP ---
+      # After a successful deployment, we manually make the webhook public.
+      - name: Make Webhook Public
+        run: |
+          gcloud functions add-invoker-policy-binding stripewebhook \
+            --region=us-central1 \
+            --member="allUsers"
