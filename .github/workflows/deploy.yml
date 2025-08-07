@@ -29,15 +29,15 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: 'github-actions-deployer@cartspark-85cbc.iam.gserviceaccount.com'
 
-      # --- NEW STEP ADDED ---
-      # This step installs the Firebase command-line tool
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
       - name: Install dependencies for functions
-        # This command runs 'npm install' inside your 'functions' directory
         run: npm --prefix functions install
 
-      # We now use the standard Firebase CLI to deploy
+      # --- THIS STEP IS NOW CORRECTED ---
+      # We now generate a token and pass it directly to the deploy command.
       - name: Deploy to Firebase
-        run: firebase deploy --project ${{ secrets.GCP_PROJECT_ID }} --only functions --force
+        run: |
+          firebase deploy --project ${{ secrets.GCP_PROJECT_ID }} --only functions --force --token ${{ steps.auth.outputs.access_token }}
+        id: auth # Give the auth step an ID to reference its outputs
