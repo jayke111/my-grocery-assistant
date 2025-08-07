@@ -24,6 +24,9 @@ jobs:
 
       # This is the new, keyless authentication step
       - name: Authenticate to Google Cloud
+        # --- THIS STEP IS NOW CORRECTED ---
+        # We give this step an ID so we can reference its output token later.
+        id: auth
         uses: 'google-github-actions/auth@v2'
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
@@ -35,9 +38,7 @@ jobs:
       - name: Install dependencies for functions
         run: npm --prefix functions install
 
-      # --- THIS STEP IS NOW CORRECTED ---
-      # We now generate a token and pass it directly to the deploy command.
+      # This step now correctly references the output from the "auth" step.
       - name: Deploy to Firebase
         run: |
           firebase deploy --project ${{ secrets.GCP_PROJECT_ID }} --only functions --force --token ${{ steps.auth.outputs.access_token }}
-        id: auth # Give the auth step an ID to reference its outputs
