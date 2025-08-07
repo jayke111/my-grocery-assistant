@@ -1,7 +1,5 @@
-// Triggering a new deployment
-
 // V2 SDK IMPORTS
-const { onCall, onRequest } = require("firebase-functions/v2/https");
+const { onRequest } = require("firebase-functions/v2/https");
 const { onUserCreated } = require("firebase-functions/v2/auth");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
@@ -9,44 +7,8 @@ const stripe = require("stripe");
 
 admin.initializeApp();
 
-// This is a Callable Function that securely accesses secrets from Secret Manager.
-exports.createstripecheckout = onCall({ secrets: ["STRIPE_SECRET_KEY"] }, async (request) => {
-    if (!request.auth) {
-        logger.error("User is not authenticated for callable function.");
-        throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
-    }
-
-    const uid = request.auth.uid;
-    const email = request.auth.token.email;
-    const { priceId } = request.data;
-
-    if (!priceId) {
-        logger.error("Missing Price ID in callable function data.");
-        throw new functions.https.HttpsError('invalid-argument', 'The function must be called with a "priceId" argument.');
-    }
-
-    try {
-        // The secret is automatically loaded into process.env
-        const stripeClient = stripe(process.env.STRIPE_SECRET_KEY);
-        const session = await stripeClient.checkout.sessions.create({
-            payment_method_types: ["card"],
-            mode: "subscription",
-            success_url: "https://cartspark-85cbc.web.app/success",
-            cancel_url: "https://cartspark-85cbc.web.app",
-            customer_email: email,
-            line_items: [{ price: priceId, quantity: 1 }],
-            client_reference_id: uid,
-        });
-
-        logger.info("Stripe session created successfully for user:", uid);
-        return { id: session.id };
-    } catch (error) {
-        logger.error("Stripe session creation failed:", error);
-        throw new functions.https.HttpsError('internal', 'Unable to create Stripe checkout session.');
-    }
-});
-
-// This webhook also securely accesses secrets from Secret Manager.
+// This webhook securely accesses secrets from Secret Manager.
+// It MUST remain public so Stripe's servers can call it.
 exports.stripewebhook = onRequest({ secrets: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"] }, async (request, response) => {
     const signature = request.headers["stripe-signature"];
     let event;
@@ -60,8 +22,18 @@ exports.stripewebhook = onRequest({ secrets: ["STRIPE_SECRET_KEY", "STRIPE_WEBHO
 
     if (event.type === "checkout.session.completed") {
         const session = event.data.object;
-        const firebaseUID = session.client_reference_id;
+        // IMPORTANT: We need to retrieve the Firebase UID differently now.
+        // We will look up the user by the email provided to the checkout session.
+        const customerEmail = session.customer_details.email;
+        if (!customerEmail) {
+            logger.error("No customer email found in Stripe session.");
+            return response.status(400).send("Bad Request: Missing customer email.");
+        }
+
         try {
+            const userRecord = await admin.auth().getUserByEmail(customerEmail);
+            const firebaseUID = userRecord.uid;
+
             const userDocRef = admin.firestore().collection("users").doc(firebaseUID);
             await userDocRef.update({
                 subscriptionStatus: "active",
@@ -69,7 +41,7 @@ exports.stripewebhook = onRequest({ secrets: ["STRIPE_SECRET_KEY", "STRIPE_WEBHO
             });
             logger.info(`Successfully granted Pro access to user: ${firebaseUID}`);
         } catch (err) {
-            logger.error("Failed to grant Pro access:", err);
+            logger.error(`Failed to grant Pro access for email ${customerEmail}:`, err);
             return response.status(500).send("Internal Server Error");
         }
     }
