@@ -1,0 +1,36 @@
+name: Deploy to Firebase
+
+on:
+  push:
+    branches:
+      - main # This will trigger the deployment when you push to your main branch
+
+jobs:
+  deploy:
+    # This gives the workflow the permissions it needs to get a token from GitHub
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # This is the new, keyless authentication step
+      - name: Authenticate to Google Cloud
+        uses: 'google-github-actions/auth@v2'
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: 'github-actions-deployer@cartspark-85cbc.iam.gserviceaccount.com'
+
+      # This action sets up the Firebase CLI
+      - name: Setup Firebase CLI
+        uses: 'google-github-actions/setup-gcloud@v2'
+
+      - name: Install dependencies for functions
+        run: npm --prefix functions install
+
+      # We now use the standard Firebase CLI to deploy
+      - name: Deploy to Firebase
+        run: firebase deploy --project ${{ secrets.GCP_PROJECT_ID }} --only functions --force

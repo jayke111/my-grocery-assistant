@@ -1,15 +1,34 @@
-import React from 'react';
-import { Icon, ErrorMessage, LoadingSpinner, CopyButton } from './UIComponents';
-import { InitialListInput } from './InitialListInput';
+import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../AppContext';
+import { LoadingSpinner, ErrorMessage, Icon, CopyButton } from './UIComponents';
 import { hasItems } from '../utils';
+import { InitialListInput } from './InitialListInput';
 import { ComingSoon } from './ComingSoon';
 
-export const ListManager = ({ listData, onSort, onClear, isGuest, isPremium, handleToggleCheck, handleEditStart, handleEditSave, handleEditChange, handleDeleteItem, handleResort, handleAddNewItem, newItem, setNewItem, needsResort, isLoading, error, inputError, editingItem, categoryOrder, generatePlainTextList, setShowAddMealToListModal, setInputError, setError }) => {
-    
+export const ListManager = ({ listData, onSort, onClear, isGuest }) => {
     const { 
-        mealIdea, isGeneratingMeal, handleGetMealIdea, error: aiError 
+        isPremium, handleToggleCheck, handleEditStart, handleEditSave, 
+        handleEditChange, handleDeleteItem, handleResort, handleAddNewItem, 
+        newItem, setNewItem, needsResort, isLoading, error, inputError, 
+        editingItem, categoryOrder, generatePlainTextList, setShowAddMealToListModal, 
+        setInputError, setError,
+        suggestedItems, setSuggestedItems, isSuggestingItems, handleSuggestItems,
+        mealIdea, isGeneratingMeal, handleGetMealIdea,
+        handleSaveMealIdea,
+        // --- ADDED: Get the new function from context ---
+        handleUpdateListName
     } = useAppContext();
+
+    const [isSavingMeal, setIsSavingMeal] = useState(false);
+    // --- ADDED: New state for managing the title edit ---
+    const [isEditingTitle, setIsEditingTitle] = useState(false);
+    const [titleText, setTitleText] = useState(listData?.name || '');
+
+    useEffect(() => {
+        // Keep the local title in sync if the list data changes
+        setTitleText(listData?.name || '');
+    }, [listData]);
+
 
     if (!listData && !isGuest) {
         return <LoadingSpinner />;
@@ -17,16 +36,49 @@ export const ListManager = ({ listData, onSort, onClear, isGuest, isPremium, han
 
     const currentListItems = listData?.items;
 
-    const handleGetMealIdeaClick = () => {
-        handleGetMealIdea();
+    const handleSuggestionClick = (suggestion) => {
+        setNewItem(prev => prev ? `${prev}\n${suggestion}` : suggestion);
+        setSuggestedItems(prev => prev.filter(item => item !== suggestion));
+    };
+
+    const onSaveMealClick = async () => {
+        if (!mealIdea) return;
+        setIsSavingMeal(true);
+        await handleSaveMealIdea(mealIdea);
+        setTimeout(() => setIsSavingMeal(false), 2000);
+    };
+
+    // --- ADDED: New handler for saving the list title ---
+    const handleTitleSave = () => {
+        if (titleText.trim() && titleText !== listData.name) {
+            handleUpdateListName(listData.id, titleText.trim());
+        }
+        setIsEditingTitle(false);
     };
 
     return (
         hasItems(listData) ? (
             <div className="space-y-6">
                 {error && !inputError && <ErrorMessage message={error} />}
-                {aiError && <ErrorMessage message={aiError} />}
-                <h2 className="text-2xl font-bold text-center text-gray-800">{listData.name || "Your Organized List"}</h2>
+                
+                {/* --- MODIFIED: This is now an editable title --- */}
+                <div className="text-center">
+                    {isEditingTitle ? (
+                        <input
+                            type="text"
+                            value={titleText}
+                            onChange={(e) => setTitleText(e.target.value)}
+                            onBlur={handleTitleSave}
+                            onKeyPress={(e) => { if (e.key === 'Enter') handleTitleSave(); }}
+                            className="text-2xl font-bold text-center text-gray-800 bg-gray-100 border-b-2 border-blue-500 outline-none"
+                            autoFocus
+                        />
+                    ) : (
+                        <h2 onClick={() => setIsEditingTitle(true)} className="text-2xl font-bold text-center text-gray-800 cursor-pointer hover:text-blue-600">
+                            {listData.name || "Your Organized List"} ✏️
+                        </h2>
+                    )}
+                </div>
                 
                 {listData.plannedMeals && listData.plannedMeals.length > 0 && (
                     <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
@@ -54,9 +106,17 @@ export const ListManager = ({ listData, onSort, onClear, isGuest, isPremium, han
                       <textarea id="new-item" rows="2" className="flex-grow p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 mb-2 sm:mb-0" placeholder="Type here or click suggestions below" value={newItem} onChange={(e) => setNewItem(e.target.value)} />
                       <div className="flex space-x-2">
                         <button onClick={() => handleAddNewItem(newItem)} disabled={isLoading} className="flex-1 bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-indigo-700 disabled:bg-indigo-400 transition">Add</button>
-                        {/* The Suggest button is now part of the AI Context and doesn't need to be here */}
+                        <button onClick={handleSuggestItems} disabled={isSuggestingItems || isLoading} className="flex-1 bg-teal-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-teal-600 disabled:bg-teal-300 transition" title="Suggest items based on your list">✨ Suggest</button>
                       </div>
                   </div>
+                  {isSuggestingItems && <LoadingSpinner small />}
+                  {suggestedItems.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                          {suggestedItems.map((suggestion, i) => (
+                              <button key={i} onClick={() => handleSuggestionClick(suggestion)} className="bg-teal-100 text-teal-800 text-sm font-medium px-3 py-1 rounded-full hover:bg-teal-200 transition">+ {suggestion}</button>
+                          ))}
+                      </div>
+                  )}
                 </div>
 
                 {categoryOrder.map(category => {
@@ -70,7 +130,6 @@ export const ListManager = ({ listData, onSort, onClear, isGuest, isPremium, han
                                         {items.map((item, index) => (
                                             <tr key={`${category}-${index}-${item.name}`}>
                                                 <td className="w-8 py-1 align-top">
-                                                    {/* FIX: Show checkbox if user is premium OR a guest */}
                                                     {(isPremium || isGuest) && <input type="checkbox" checked={item.checked} onChange={() => handleToggleCheck(category, index)} className="h-5 w-5 mt-1 rounded border-gray-400 text-blue-600 focus:ring-blue-500 cursor-pointer"/>}
                                                 </td>
                                                 <td className="py-1">
@@ -97,11 +156,20 @@ export const ListManager = ({ listData, onSort, onClear, isGuest, isPremium, han
                 })}
                 
                 <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
-                  <button onClick={handleGetMealIdeaClick} disabled={isGeneratingMeal || isLoading} className="w-full bg-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-700 disabled:bg-purple-300 transition-all">✨ Get Meal Idea</button>
+                  <button onClick={handleGetMealIdea} disabled={isGeneratingMeal || isLoading} className="w-full bg-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-700 disabled:bg-purple-300 transition-all">✨ Get Meal Idea</button>
                   {isGeneratingMeal && <LoadingSpinner small />}
                   {mealIdea && mealIdea.title && (
                       <div className="mt-4 p-4 bg-white rounded-md border">
-                          <h4 className="font-semibold text-lg text-purple-800">{mealIdea.title}</h4>
+                          <div className="flex justify-between items-center mb-2">
+                              <h4 className="font-semibold text-lg text-purple-800">{mealIdea.title}</h4>
+                              <button 
+                                onClick={onSaveMealClick}
+                                disabled={isSavingMeal}
+                                className={`text-xs font-bold py-1 px-3 rounded-full transition ${isSavingMeal ? 'bg-green-200 text-green-800' : 'bg-purple-200 text-purple-800 hover:bg-purple-300'}`}
+                              >
+                                {isSavingMeal ? 'Saved!' : 'Save as Meal Template'}
+                              </button>
+                          </div>
                           <div className="mt-4">
                               <h5 className="font-semibold text-sm">You have:</h5>
                               <ul className="list-disc list-inside text-sm text-gray-600">
@@ -133,15 +201,21 @@ export const ListManager = ({ listData, onSort, onClear, isGuest, isPremium, han
                   )}
                 </div>
                 
-                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <CopyButton textToCopy={generatePlainTextList()} />
-                    <button onClick={onClear} disabled={isLoading} className="w-full bg-gray-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-700">Start New List</button>
+                    <button 
+                        onClick={onClear} 
+                        disabled={isLoading} 
+                        className="w-full flex items-center justify-center gap-x-2 py-3 px-4 rounded-lg font-semibold text-gray-700 bg-gray-200 hover:bg-red-500 hover:text-white transition-all duration-300"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        Start New List
+                    </button>
                 </div>
-
                 {isGuest && <ComingSoon />}
             </div>
         ) : (
-            <InitialListInput onSort={onSort} onClear={onClear} isLoading={isLoading} error={error} inputError={inputError} setInputError={setInputError} setError={setError} listName={listData?.name || "New List"} />
+            <InitialListInput onSort={onSort} onClear={onClear} isLoading={isLoading} error={error} inputError={inputError} setInputError={setInputError} setError={setError} listName={listData?.name || "New List"} isGuest={isGuest} />
         )
     );
 };

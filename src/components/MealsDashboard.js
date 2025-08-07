@@ -1,10 +1,10 @@
-import React from 'react';
 import { useAppContext } from '../AppContext';
 import { EmptyState } from './UIComponents';
 
 export const MealsDashboard = () => {
-    const { setPage, userMeals, handleCreateNewMeal, handleEditMeal, handleDeleteMeal } = useAppContext();
-
+    // --- MODIFIED: Added setShowSuggestionsModal ---
+    const { setPage, userMeals, handleCreateNewMeal, handleEditMeal, handleDeleteMeal, setShowSuggestionsModal } = useAppContext();
+    
     return (
         <div className="bg-white p-6 rounded-2xl shadow-lg">
             <div className="flex border-b mb-6">
@@ -13,7 +13,13 @@ export const MealsDashboard = () => {
                 <button onClick={() => setPage('meal-plan')} className="flex-1 py-2 text-center font-semibold text-gray-500 hover:text-blue-600">Meal Plan</button>
             </div>
             <h2 className="text-2xl font-bold text-center text-gray-800 mb-6">My Meal Templates</h2>
-            <button onClick={handleCreateNewMeal} className="w-full bg-green-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-600 transition mb-6">+ Create New Meal</button>
+            
+            {/* --- MODIFIED: Added a grid for the two buttons --- */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <button onClick={handleCreateNewMeal} className="w-full bg-green-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-600 transition">+ Create New Meal</button>
+                <button onClick={() => setShowSuggestionsModal(true)} className="w-full bg-blue-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-600 transition">💡 Add from Suggestions</button>
+            </div>
+
             {userMeals && userMeals.length > 0 ? (
                 <ul className="space-y-3">
                     {userMeals.map(meal => (

@@ -1,21 +1,25 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
-import { doc, setDoc, onSnapshot, collection, query, where, addDoc, deleteDoc, serverTimestamp, getDoc, updateDoc, arrayUnion, writeBatch } from "firebase/firestore";
+import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, updateProfile } from "firebase/auth";
+import * as firestore from "firebase/firestore";
 import { auth, db } from './firebase-config';
 import { hasItems } from './utils';
+import { loadStripe } from '@stripe/stripe-js';
 
 const AppContext = createContext();
+
+const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
 
 export const useAppContext = () => {
     return useContext(AppContext);
 };
 
 export const AppProvider = ({ children }) => {
-    const geminiApiKey = "AIzaSyDUsA1lOW3tvCN5VIdk-21pXkpIDJ6QlvU"; 
+    const geminiApiKey = process.env.REACT_APP_GEMINI_API_KEY; 
 
     const [user, setUser] = useState(null);
     const [authLoading, setAuthLoading] = useState(true);
     const [dataLoading, setDataLoading] = useState(true);
+    const [subscriptionStatus, setSubscriptionStatus] = useState(null);
 
     const [page, setPage] = useState('home');
     const [selectedArticle, setSelectedArticle] = useState(null);
@@ -36,6 +40,7 @@ export const AppProvider = ({ children }) => {
             return saved ? JSON.parse(saved) : null;
         } catch (e) { return null; }
     });
+    
     const [isPremium, setIsPremium] = useState(() => {
         const saved = localStorage.getItem('isPremium');
         return saved ? JSON.parse(saved) : false;
@@ -44,94 +49,167 @@ export const AppProvider = ({ children }) => {
     const [userMeals, setUserMeals] = useState(null);
     const [showAddMealToListModal, setShowAddMealToListModal] = useState(false);
     const [mealPlan, setMealPlan] = useState(null);
+    const [isUpdatingMealPlan, setIsUpdatingMealPlan] = useState(false);
     
     const [mealIdea, setMealIdea] = useState(null);
     const [isGeneratingMeal, setIsGeneratingMeal] = useState(false);
     const [suggestedItems, setSuggestedItems] = useState([]);
     const [isSuggestingItems, setIsSuggestingItems] = useState(false);
+    const [ignoredSuggestions, setIgnoredSuggestions] = useState([]);
     
     const [listResetKey, setListResetKey] = useState(0);
+    const [promptConfig, setPromptConfig] = useState({ isOpen: false });
+    const [mealModalConfig, setMealModalConfig] = useState({ isOpen: false });
+    const [showSuggestionsModal, setShowSuggestionsModal] = useState(false);
+
+    const togglePremium = () => {
+        setIsPremium(prev => {
+            const newState = !prev;
+            localStorage.setItem('isPremium', JSON.stringify(newState));
+            return newState;
+        });
+    };
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
             setUser(currentUser);
-            if (currentUser) {
-                const userDocRef = doc(db, "users", currentUser.uid);
-                const emailDocRef = doc(db, "emailToUid", currentUser.email);
-                const userDoc = await getDoc(userDocRef);
-                if (!userDoc.exists()) {
-                    const batch = writeBatch(db);
-                    batch.set(userDocRef, { email: currentUser.email, createdAt: serverTimestamp() });
-                    batch.set(emailDocRef, { uid: currentUser.uid });
-                    await batch.commit();
-                }
-            }
             setAuthLoading(false);
         });
-        return () => unsubscribe(); 
+        return () => unsubscribe();
     }, []);
 
     useEffect(() => {
         if (user) {
             setDataLoading(true);
-            const listsQuery = query(collection(db, "lists"), where("members", "array-contains", user.uid));
-            const mealsQuery = query(collection(db, "meals"), where("ownerId", "==", user.uid));
-            const planQuery = doc(db, "mealPlans", user.uid);
-
-            let listsLoaded = false, mealsLoaded = false, planLoaded = false;
-            const checkDataLoaded = () => {
-                if (listsLoaded && mealsLoaded && planLoaded) setDataLoading(false);
-            };
-
-            const unsubLists = onSnapshot(listsQuery, (snapshot) => {
-                setUserLists(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)));
-                listsLoaded = true; checkDataLoaded();
-            }, (err) => { console.error("Error fetching lists:", err); setError("Could not load lists."); });
-            
-            const unsubMeals = onSnapshot(mealsQuery, (snapshot) => {
-                setUserMeals(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => a.name.localeCompare(b.name)));
-                mealsLoaded = true; checkDataLoaded();
-            }, (err) => { console.error("Error fetching meals:", err); setError("Could not load meals."); });
-
-            const unsubPlan = onSnapshot(planQuery, (docSnap) => {
-                if (docSnap.exists()) {
-                    setMealPlan(docSnap.data());
-                } else {
-                    const newPlan = { ownerId: user.uid, days: { Sunday: [], Monday: [], Tuesday: [], Wednesday: [], Thursday: [], Friday: [], Saturday: [] } };
-                    setDoc(planQuery, newPlan);
-                    setMealPlan(newPlan);
+            const userDocRef = firestore.doc(db, "users", user.uid);
+            const unsubUser = firestore.onSnapshot(userDocRef, (doc) => {
+                if (doc.exists()) {
+                    setSubscriptionStatus(doc.data().subscriptionStatus || 'inactive');
                 }
-                planLoaded = true; checkDataLoaded();
-            }, (err) => { console.error("Error fetching meal plan:", err); setError("Could not load meal plan."); });
-
-            return () => { unsubLists(); unsubMeals(); unsubPlan(); };
+            });
+            const listsQuery = firestore.query(firestore.collection(db, "lists"), firestore.where("members", "array-contains", user.uid));
+            const unsubLists = firestore.onSnapshot(listsQuery, (snapshot) => {
+                setUserLists(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)));
+            });
+            const mealsQuery = firestore.query(firestore.collection(db, "meals"), firestore.where("ownerId", "==", user.uid));
+            const unsubMeals = firestore.onSnapshot(mealsQuery, (snapshot) => {
+                setUserMeals(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => a.name.localeCompare(b.name)));
+            });
+            const planQuery = firestore.doc(db, "mealPlans", user.uid);
+            const unsubPlan = firestore.onSnapshot(planQuery, (docSnap) => {
+                if(docSnap.exists()) {
+                    setMealPlan(docSnap.data());
+                }
+            });
+            setDataLoading(false);
+            return () => { 
+                unsubUser(); 
+                unsubLists(); 
+                unsubMeals(); 
+                unsubPlan(); 
+            };
         } else {
-            setUserLists(null); setUserMeals(null); setMealPlan(null); setDataLoading(false);
+            setUserLists(null); 
+            setUserMeals(null); 
+            setMealPlan(null); 
+            setSubscriptionStatus(null);
+            setDataLoading(false);
         }
     }, [user]);
-    
+
     useEffect(() => {
         if (activeListId && user) {
-            const listDocRef = doc(db, "lists", activeListId);
-            const unsubscribe = onSnapshot(listDocRef, (docSnap) => {
-                setActiveListData(docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } : null);
-            }, (err) => { console.error("Error fetching active list:", err); setError("Could not load the selected list."); });
+            const listDocRef = firestore.doc(db, "lists", activeListId);
+            const unsubscribe = firestore.onSnapshot(listDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    setActiveListData({ id: docSnap.id, ...docSnap.data() });
+                } else {
+                    console.error("No such document!");
+                    setError("Could not find the selected list.");
+                    setActiveListData(null);
+                }
+            }, (err) => {
+                console.error("Error fetching active list:", err);
+                setError("Could not load the selected list.");
+            });
             return () => unsubscribe();
         } else {
             setActiveListData(null);
         }
     }, [activeListId, user]);
 
-    useEffect(() => {
+
+    const handleProceedToPayment = async (priceId) => {
         if (!user) {
-            localStorage.setItem('cartspark-guest-list', JSON.stringify(guestList));
+            setError("You must be logged in to subscribe.");
+            return;
         }
-    }, [guestList, user]);
+        if (!priceId) {
+            setError("Please select a subscription plan.");
+            return;
+        }
+
+        setIsLoading(true);
+        setError('');
+        try {
+            const idToken = await user.getIdToken();
+            
+            // --- MODIFIED: Corrected the live project ID ---
+            const functionUrl = process.env.NODE_ENV === 'development' 
+                ? 'http://127.0.0.1:5001/cartspark-85cbc/us-central1/createStripeCheckout'
+                : 'https://us-central1-cartspark-85cbc.cloudfunctions.net/createStripeCheckout';
+
+            const response = await fetch(functionUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${idToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ priceId: priceId }),
+            });
+
+            if (!response.ok) {
+                const errorBody = await response.text();
+                throw new Error(`Failed to create checkout session: ${errorBody}`);
+            }
+
+            const { id: sessionId } = await response.json();
+            
+            const stripe = await stripePromise;
+            const { error } = await stripe.redirectToCheckout({ sessionId });
+            
+            if (error) {
+                throw new Error(error.message);
+            }
+        } catch (err) {
+            setError(err.message);
+            setIsLoading(false);
+        }
+    };
+
+    const callGeminiAPI = async (prompt) => {
+        if (!geminiApiKey) throw new Error("API Key missing.");
+        const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { temperature: 0.3, maxOutputTokens: 2048 } };
+        
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`;
+        
+        const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (!response.ok) throw new Error(`API request failed with status ${response.status}.`);
+        const result = await response.json();
+        if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
+            return result.candidates[0].content.parts[0].text;
+        } else {
+            throw new Error(result?.promptFeedback?.blockReason ? `Request blocked: ${result.promptFeedback.blockReason}` : "Could not get a valid response from the AI.");
+        }
+    };
 
     const handleGoogleLogin = async () => {
         const provider = new GoogleAuthProvider();
-        try { await signInWithPopup(auth, provider); setPage('home'); } 
-        catch (error) { console.error("Authentication error:", error); setError("Failed to sign in."); }
+        try { await signInWithPopup(auth, provider); } 
+        catch (error) { 
+            console.error("Authentication error:", error); 
+            setError("Failed to sign in. Please try again."); 
+        }
     };
 
     const handleLogout = async () => {
@@ -145,8 +223,8 @@ export const AppProvider = ({ children }) => {
     
     const updateListInStorage = async (newListState) => {
         if (user && activeListId) {
-            const listDocRef = doc(db, "lists", activeListId);
-            await setDoc(listDocRef, { items: newListState }, { merge: true });
+            const listDocRef = firestore.doc(db, "lists", activeListId);
+            await firestore.setDoc(listDocRef, { items: newListState }, { merge: true });
         } else {
             setGuestList(newListState);
         }
@@ -159,23 +237,11 @@ export const AppProvider = ({ children }) => {
         updateListInStorage(newList);
     };
 
-    const callGeminiAPI = async (prompt) => {
-        if (!geminiApiKey) throw new Error("API Key missing.");
-        const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { temperature: 0.3, maxOutputTokens: 2048 } };
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`;
-        const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        if (!response.ok) throw new Error(`API request failed with status ${response.status}.`);
-        const result = await response.json();
-        if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
-            return result.candidates[0].content.parts[0].text;
-        } else {
-            throw new Error(result?.promptFeedback?.blockReason ? `Request blocked: ${result.promptFeedback.blockReason}` : "Could not get a valid response from the AI.");
-        }
-    };
-
     const handleSortList = async (listToSort, listIdToUpdate, plannedMeals = []) => {
         setIsLoading(true);
         setError('');
+        setIgnoredSuggestions([]);
+        setSuggestedItems([]);
         const prompt = `Categorize these items into a JSON object with these keys: ${categoryOrder.join(', ')}. For any category without items, use an empty array []. The list is:\n---\n${listToSort}`;
         try {
             const responseText = await callGeminiAPI(prompt);
@@ -186,8 +252,8 @@ export const AppProvider = ({ children }) => {
                 completeList[category] = (parsedJson[category] || []).map(name => ({ name, checked: false }));
             }
             if (user && listIdToUpdate) {
-                 const listDocRef = doc(db, "lists", listIdToUpdate);
-                 await setDoc(listDocRef, { items: completeList, lastUpdated: serverTimestamp(), plannedMeals }, { merge: true });
+                 const listDocRef = firestore.doc(db, "lists", listIdToUpdate);
+                 await firestore.setDoc(listDocRef, { items: completeList, lastUpdated: firestore.serverTimestamp(), plannedMeals }, { merge: true });
             } else {
                 setGuestList(completeList);
             }
@@ -235,11 +301,19 @@ export const AppProvider = ({ children }) => {
             setError("Please add some items to your list before asking for suggestions.");
             return;
         }
-        setSuggestedItems([]);
+        
+        const newIgnored = [...ignoredSuggestions, ...suggestedItems];
+        setIgnoredSuggestions(newIgnored);
+
         setIsSuggestingItems(true);
         setError('');
         try {
-            const prompt = `Based on this grocery list: ${allItems.join(', ')}, suggest 5 more related items. Return only a comma-separated list, nothing else.`;
+            let prompt = `Based on this grocery list: ${allItems.join(', ')}, suggest 5 more related items.`;
+            if (newIgnored.length > 0) {
+                prompt += ` Do not suggest any of these items: ${newIgnored.join(', ')}.`;
+            }
+            prompt += " Return only a comma-separated list, nothing else.";
+
             const responseText = await callGeminiAPI(prompt);
             const suggestions = responseText.split(',').map(s => s.trim()).filter(Boolean);
             setSuggestedItems(suggestions);
@@ -285,6 +359,7 @@ export const AppProvider = ({ children }) => {
         setInputError(false);
         setMealIdea(null);
         setSuggestedItems([]);
+        setIgnoredSuggestions([]);
         setNeedsResort(false);
         if(user && activeListId) {
             updateListInStorage(null);
@@ -295,89 +370,157 @@ export const AppProvider = ({ children }) => {
         }
     };
     
-    const handleCreateNewList = async () => {
-        const listName = prompt("Enter a name for your new list:", "My Grocery List");
-        if (listName && user) {
-            setIsLoading(true);
-            try {
-                const newListRef = await addDoc(collection(db, "lists"), { name: listName, ownerId: user.uid, members: [user.uid], createdAt: serverTimestamp(), items: null });
-                setActiveListId(newListRef.id);
-            } catch (e) { setError("Could not create new list."); } 
-            finally { setIsLoading(false); }
-        }
-    };
-
-    const handleDeleteList = async (listId) => {
-        if (window.confirm("Are you sure you want to permanently delete this list?")) {
-            try {
-                await deleteDoc(doc(db, "lists", listId));
-                if (activeListId === listId) setActiveListId(null);
-            } catch (e) { setError("Could not delete list."); }
-        }
-    };
-
-    const handleShareList = async (listId) => {
-        const email = prompt("Enter the email address of the user you want to share this list with:");
-        if (!email || !user) return;
-    
-        try {
-            const emailDocRef = doc(db, "emailToUid", email.toLowerCase());
-            const emailDoc = await getDoc(emailDocRef);
-    
-            if (!emailDoc.exists()) {
-                alert("User not found. Please make sure they have signed up for CartSpark.");
-                return;
+    const handleCreateNewList = () => {
+        setPromptConfig({
+            isOpen: true,
+            type: 'input',
+            title: "Create New List",
+            message: "Enter a name for your new list:",
+            initialValue: "My Grocery List",
+            confirmText: "Create",
+            onSubmit: async (listName) => {
+                if (listName && user) {
+                    setIsLoading(true);
+                    try {
+                        const newListRef = await firestore.addDoc(firestore.collection(db, "lists"), { name: listName, ownerId: user.uid, members: [user.uid], createdAt: firestore.serverTimestamp(), items: null });
+                        setActiveListId(newListRef.id);
+                    } catch (e) { setError("Could not create new list."); } 
+                    finally { setIsLoading(false); }
+                }
             }
-    
-            const invitedUserId = emailDoc.data().uid;
-    
-            const listDocRef = doc(db, "lists", listId);
-            await updateDoc(listDocRef, {
-                members: arrayUnion(invitedUserId)
-            });
-    
-            alert("List shared successfully!");
-        } catch (e) {
-            console.error("Error sharing list: ", e);
-            setError("Could not share the list. Please try again.");
-        }
+        });
     };
 
-    const handleCreateNewMeal = async () => {
-        const mealName = prompt("Enter a name for your new meal template:", "e.g., Taco Night");
-        if (mealName && user) {
-            const ingredients = prompt("Enter the ingredients, separated by commas:", "Ground beef, Taco shells, Lettuce, Cheese");
-            if (ingredients) {
-                const ingredientsArray = ingredients.split(',').map(item => item.trim()).filter(Boolean);
-                await addDoc(collection(db, "meals"), { name: mealName, ownerId: user.uid, createdAt: serverTimestamp(), ingredients: ingredientsArray });
+    const handleDeleteList = (listId) => {
+        setPromptConfig({
+            isOpen: true,
+            type: 'confirm',
+            title: "Delete List",
+            message: "Are you sure you want to permanently delete this list?",
+            confirmText: "Delete",
+            onSubmit: async () => {
+                try {
+                    await firestore.deleteDoc(firestore.doc(db, "lists", listId));
+                    if (activeListId === listId) setActiveListId(null);
+                } catch (e) { setError("Could not delete list."); }
             }
-        }
+        });
     };
 
-    const handleEditMeal = async (mealToEdit) => {
-        const newMealName = prompt("Enter the new name for your meal template:", mealToEdit.name);
-        if (newMealName) {
-            const newIngredients = prompt("Enter the new ingredients, separated by commas:", mealToEdit.ingredients.join(', '));
-            if (newIngredients) {
-                const ingredientsArray = newIngredients.split(',').map(item => item.trim()).filter(Boolean);
-                const mealDocRef = doc(db, "meals", mealToEdit.id);
-                await updateDoc(mealDocRef, { name: newMealName, ingredients: ingredientsArray });
+    const handleShareList = (listId) => {
+        setPromptConfig({
+            isOpen: true,
+            type: 'input',
+            title: "Share List",
+            message: "Enter the email address of the user you want to share this list with:",
+            initialValue: "",
+            confirmText: "Share",
+            onSubmit: async (email) => {
+                if (!email || !user) return;
+                try {
+                    const emailDocRef = firestore.doc(db, "emailToUid", email.toLowerCase());
+                    const emailDoc = await firestore.getDoc(emailDocRef);
+            
+                    if (!emailDoc.exists()) {
+                        setPromptConfig({
+                            isOpen: true,
+                            type: 'confirm',
+                            title: 'Invite User?',
+                            message: `The user ${email} isn't on CartSpark yet. Would you like to send them an invitation?`,
+                            confirmText: 'Send Invite',
+                            onSubmit: () => {
+                                const subject = "You're invited to collaborate on a grocery list!";
+                                const body = `Hey!\n\nI'm using CartSpark to organize my shopping and I'd like to share a list with you.\n\nYou can sign up for free here: [Your App's URL]\n\nSee you there!\n\n- ${user.displayName || user.email}`;
+                                const mailtoLink = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                                window.location.href = mailtoLink;
+                            }
+                        });
+                        return;
+                    }
+            
+                    const invitedUserId = emailDoc.data().uid;
+                    const listDocRef = firestore.doc(db, "lists", listId);
+                    await firestore.updateDoc(listDocRef, { members: firestore.arrayUnion(invitedUserId) });
+            
+                    setPromptConfig({
+                        isOpen: true,
+                        type: 'alert',
+                        title: 'Success!',
+                        message: 'List shared successfully!',
+                    });
+                } catch (e) {
+                    console.error("Error sharing list: ", e);
+                    setError("Could not share the list. Please try again.");
+                }
             }
-        }
+        });
+    };
+    
+    const handleCreateNewMeal = () => {
+        setMealModalConfig({
+            isOpen: true,
+            title: "Create New Meal",
+            confirmText: "Save Meal",
+            onSubmit: async ({ name, ingredients }) => {
+                if (name && ingredients && user) {
+                    const ingredientsArray = ingredients.split(',').map(item => item.trim()).filter(Boolean);
+                    await firestore.addDoc(firestore.collection(db, "meals"), { name, ownerId: user.uid, createdAt: firestore.serverTimestamp(), ingredients: ingredientsArray });
+                }
+            }
+        });
     };
 
-    const handleDeleteMeal = async (mealId) => {
-        if (window.confirm("Are you sure you want to delete this meal template?")) {
-            await deleteDoc(doc(db, "meals", mealId));
-        }
+    const handleEditMeal = (mealToEdit) => {
+        setMealModalConfig({
+            isOpen: true,
+            title: "Edit Meal",
+            confirmText: "Save Changes",
+            initialMeal: mealToEdit,
+            onSubmit: async ({ name, ingredients }) => {
+                if (name && ingredients) {
+                    const ingredientsArray = ingredients.split(',').map(item => item.trim()).filter(Boolean);
+                    const mealDocRef = firestore.doc(db, "meals", mealToEdit.id);
+                    await firestore.updateDoc(mealDocRef, { name, ingredients: ingredientsArray });
+                }
+            }
+        });
     };
 
-    const handleAddMealToPlan = async (meal, day) => {
-        if (!user || !day || !mealPlan) return;
-        const newDays = { ...mealPlan.days };
+    const handleDeleteMeal = (mealId) => {
+        setPromptConfig({
+            isOpen: true,
+            type: 'confirm',
+            title: "Delete Meal",
+            message: "Are you sure you want to delete this meal template?",
+            confirmText: "Delete",
+            onSubmit: async () => {
+                await firestore.deleteDoc(firestore.doc(db, "meals", mealId));
+            }
+        });
+    };
+
+    const handleAddMealToPlan = async (meal, day, mealType) => {
+        if (!user || !day || !mealType || !mealPlan) return;
+        
         const simpleMeal = { id: meal.id, name: meal.name, ingredients: meal.ingredients };
-        newDays[day] = [...newDays[day], simpleMeal];
-        await setDoc(doc(db, "mealPlans", user.uid), { days: newDays }, { merge: true });
+        const newDays = { ...mealPlan.days };
+        
+        if (!newDays[day][mealType]) {
+            newDays[day][mealType] = [];
+        }
+        
+        newDays[day][mealType] = [...newDays[day][mealType], simpleMeal];
+        
+        setMealPlan(prevPlan => ({ ...prevPlan, days: newDays }));
+
+        const planDocRef = firestore.doc(db, "mealPlans", user.uid);
+        try {
+            await firestore.setDoc(planDocRef, { days: newDays }, { merge: true });
+        } catch (e) {
+            console.error("Error updating meal plan:", e);
+            setError("Could not update meal plan. Please try again.");
+            setMealPlan(mealPlan); 
+        }
     };
     
     const handleAddMealToList = (meal) => {
@@ -388,11 +531,21 @@ export const AppProvider = ({ children }) => {
         setShowAddMealToListModal(false);
     };
 
-    const handleRemoveMealFromPlan = async (day, mealIndex) => {
+    const handleRemoveMealFromPlan = async (day, mealType, mealIndex) => {
         if (!user || !mealPlan) return;
+
+        setIsUpdatingMealPlan(true);
         const newDays = { ...mealPlan.days };
-        newDays[day] = newDays[day].filter((_, index) => index !== mealIndex);
-        await setDoc(doc(db, "mealPlans", user.uid), { days: newDays }, { merge: true });
+        newDays[day][mealType] = newDays[day][mealType].filter((_, index) => index !== mealIndex);
+        
+        const planDocRef = firestore.doc(db, "mealPlans", user.uid);
+        try {
+            await firestore.setDoc(planDocRef, { days: newDays }, { merge: true });
+        } catch (e) {
+            console.error("Error updating meal plan:", e);
+        } finally {
+            setIsUpdatingMealPlan(false);
+        }
     };
 
     const handleGenerateShoppingList = async () => {
@@ -401,20 +554,24 @@ export const AppProvider = ({ children }) => {
         try {
             const allIngredients = new Set();
             const plannedMeals = new Set();
-            Object.values(mealPlan.days).forEach(meals => {
-                meals.forEach(meal => {
-                    plannedMeals.add(meal.name);
-                    meal.ingredients.forEach(ing => allIngredients.add(ing));
+            
+            Object.values(mealPlan.days).forEach(day => {
+                Object.values(day).forEach(mealType => {
+                    mealType.forEach(meal => {
+                        plannedMeals.add(meal.name);
+                        meal.ingredients.forEach(ing => allIngredients.add(ing));
+                    });
                 });
             });
+
             const listString = Array.from(allIngredients).join('\n');
             
             const listName = `Shopping List for ${new Date().toLocaleDateString()}`;
-            const newListRef = await addDoc(collection(db, "lists"), {
+            const newListRef = await firestore.addDoc(firestore.collection(db, "lists"), {
                 name: listName,
                 ownerId: user.uid,
                 members: [user.uid],
-                createdAt: serverTimestamp(),
+                createdAt: firestore.serverTimestamp(),
                 items: null,
                 plannedMeals: Array.from(plannedMeals)
             });
@@ -445,18 +602,99 @@ export const AppProvider = ({ children }) => {
         });
         return text;
     };
+    
+    const handleClearMealPlan = async () => {
+        if (!user) return;
+        setPromptConfig({
+            isOpen: true,
+            type: 'confirm',
+            title: "Clear Meal Plan",
+            message: "Are you sure you want to clear your entire meal plan for the week?",
+            confirmText: "Clear",
+            onSubmit: async () => {
+                setIsUpdatingMealPlan(true);
+                const newPlan = { 
+                    ownerId: user.uid, 
+                    days: { 
+                        Sunday: { breakfast: [], lunch: [], dinner: [] },
+                        Monday: { breakfast: [], lunch: [], dinner: [] },
+                        Tuesday: { breakfast: [], lunch: [], dinner: [] },
+                        Wednesday: { breakfast: [], lunch: [], dinner: [] },
+                        Thursday: { breakfast: [], lunch: [], dinner: [] },
+                        Friday: { breakfast: [], lunch: [], dinner: [] },
+                        Saturday: { breakfast: [], lunch: [], dinner: [] }
+                    } 
+                };
+                const planDocRef = firestore.doc(db, "mealPlans", user.uid);
+                try {
+                    await firestore.setDoc(planDocRef, newPlan);
+                } catch (e) {
+                    setError("Could not clear the meal plan.");
+                } finally {
+                    setIsUpdatingMealPlan(false);
+                }
+            }
+        });
+    };
 
-    const handleJoinWaitlist = async (email) => {
-        if (!email) return;
-        const waitlistRef = collection(db, "waitlist");
+    const handleSaveMealIdea = async (mealIdeaToSave) => {
+        if (!mealIdeaToSave || !user) return;
+        
+        const allIngredients = [...mealIdeaToSave.has, ...mealIdeaToSave.needs];
+
         try {
-            await addDoc(waitlistRef, {
-                email: email,
-                timestamp: serverTimestamp()
+            await firestore.addDoc(firestore.collection(db, "meals"), {
+                name: mealIdeaToSave.title,
+                ownerId: user.uid,
+                createdAt: firestore.serverTimestamp(),
+                ingredients: allIngredients
+            });
+            setPromptConfig({
+                isOpen: true,
+                type: 'alert',
+                title: 'Meal Saved!',
+                message: `"${mealIdeaToSave.title}" has been added to your meal templates.`,
             });
         } catch (e) {
-            console.error("Error adding document: ", e);
-            setError("Could not add you to the waitlist. Please try again.");
+            console.error("Error saving meal idea:", e);
+            setError("Could not save the meal template.");
+        }
+    };
+
+    const handleUpdateListName = async (listId, newName) => {
+        if (!listId || !newName) return;
+        const listDocRef = firestore.doc(db, "lists", listId);
+        try {
+            await firestore.updateDoc(listDocRef, {
+                name: newName
+            });
+        } catch (e) {
+            console.error("Error updating list name:", e);
+            setError("Could not update the list name.");
+        }
+    };
+
+    const handleUpdateProfile = async (newName) => {
+        if (!auth.currentUser) return;
+        
+        await updateProfile(auth.currentUser, {
+            displayName: newName
+        });
+        setUser({ ...auth.currentUser }); 
+    };
+
+    const handleAddSuggestedMeal = async (meal) => {
+        if (!meal || !user) return;
+        try {
+            await firestore.addDoc(firestore.collection(db, "meals"), {
+                name: meal.name,
+                ownerId: user.uid,
+                createdAt: firestore.serverTimestamp(),
+                ingredients: meal.ingredients
+            });
+        } catch (e) {
+            console.error("Error adding suggested meal:", e);
+            setError("Could not add the suggested meal.");
         }
     };
 
@@ -470,9 +708,18 @@ export const AppProvider = ({ children }) => {
         handleSortList, handleResort, handleEditStart, handleEditChange, handleEditSave, handleAddNewItem,
         handleDeleteItem, handleClearList, handleCreateNewList, handleDeleteList, handleShareList,
         handleCreateNewMeal, handleEditMeal, handleDeleteMeal, handleAddMealToPlan, handleRemoveMealFromPlan,
-        handleGenerateShoppingList, handleAddMealToList, isPremium,
+        handleGenerateShoppingList, handleAddMealToList, isPremium, togglePremium,
         suggestedItems, setSuggestedItems, isSuggestingItems, handleSuggestItems, handleGetMealIdea,
-        generatePlainTextList, listResetKey, handleJoinWaitlist
+        generatePlainTextList, listResetKey, isUpdatingMealPlan, handleClearMealPlan,
+        promptConfig, setPromptConfig, mealModalConfig, setMealModalConfig,
+        subscriptionStatus,
+        handleProceedToPayment,
+        handleSaveMealIdea,
+        handleUpdateListName,
+        handleUpdateProfile,
+        showSuggestionsModal, 
+        setShowSuggestionsModal,
+        handleAddSuggestedMeal
     };
 
     return (
