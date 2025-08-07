@@ -1,3 +1,5 @@
+// Triggering a new deployment
+
 // V2 SDK IMPORTS
 const { onCall, onRequest } = require("firebase-functions/v2/https");
 const { onUserCreated } = require("firebase-functions/v2/auth");
