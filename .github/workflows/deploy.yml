@@ -22,7 +22,7 @@ jobs:
         with:
           node-version: '20'
 
-      # This is the keyless authentication step
+      # This is the keyless authentication step. It provides the credentials.
       - name: Authenticate to Google Cloud
         id: auth
         uses: 'google-github-actions/auth@v2'
@@ -30,14 +30,19 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: 'github-actions-deployer@cartspark-85cbc.iam.gserviceaccount.com'
 
-      - name: Install Firebase CLI
-        run: npm install -g firebase-tools
-
       - name: Install dependencies for functions
         run: npm --prefix functions install
 
-      # --- THIS IS THE FINAL, CORRECTED DEPLOY STEP ---
-      # We now use gcloud to generate a token and pass it to the firebase deploy command.
+      # --- THIS IS THE NEW, SIMPLER DEPLOY STEP ---
+      # We use a dedicated action that is designed to work with the authenticated session.
       - name: Deploy to Firebase
-        run: |
-          firebase deploy --project ${{ secrets.GCP_PROJECT_ID }} --only functions --force --token "$(gcloud auth print-access-token)"
+        uses: w9jds/firebase-action@master
+        with:
+          action: deploy
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          # The firebase_token is automatically handled by the action using the authenticated session
+          firebase_token: ${{ secrets.FIREBASE_TOKEN }}
+          only: 'functions'
+        env:
+          # This provides the service account credentials to the action
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
