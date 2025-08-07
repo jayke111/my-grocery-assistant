@@ -33,8 +33,9 @@ jobs:
       - name: Install dependencies for functions
         run: npm --prefix functions install
 
-      # --- THIS IS THE NEW, SIMPLER DEPLOY STEP ---
+      # --- THIS IS THE FINAL, CORRECTED DEPLOY STEP ---
       # We use a dedicated action that is designed to work with the authenticated session.
+      # The unnecessary 'env' block has been removed.
       - name: Deploy to Firebase
         uses: w9jds/firebase-action@master
         with:
@@ -43,6 +44,3 @@ jobs:
           # The firebase_token is automatically handled by the action using the authenticated session
           firebase_token: ${{ secrets.FIREBASE_TOKEN }}
           only: 'functions'
-        env:
-          # This provides the service account credentials to the action
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
