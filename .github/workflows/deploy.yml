@@ -33,35 +33,13 @@ jobs:
       - name: Install dependencies for functions
         run: npm --prefix functions install
 
-      # --- THIS IS THE NEW, FINAL DEPLOY STEP ---
-      # We now use the gcloud CLI directly, which is more robust.
-      - name: Deploy to Firebase using gcloud
-        run: |
-          gcloud functions deploy onusercreate \
-            --gen2 \
-            --runtime=nodejs20 \
-            --project=${{ secrets.GCP_PROJECT_ID }} \
-            --region=us-central1 \
-            --source=functions \
-            --entry-point=onusercreate \
-            --trigger-event-filters="type=google.firebase.auth.user.v1.created"
-            
-          gcloud functions deploy createstripecheckout \
-            --gen2 \
-            --runtime=nodejs20 \
-            --project=${{ secrets.GCP_PROJECT_ID }} \
-            --region=us-central1 \
-            --source=functions \
-            --entry-point=createstripecheckout \
-            --trigger-http \
-            --no-allow-unauthenticated
-
-          gcloud functions deploy stripewebhook \
-            --gen2 \
-            --runtime=nodejs20 \
-            --project=${{ secrets.GCP_PROJECT_ID }} \
-            --region=us-central1 \
-            --source=functions \
-            --entry-point=stripewebhook \
-            --trigger-http \
-            --allow-unauthenticated
+      # --- THIS IS THE NEW, SIMPLER DEPLOY STEP ---
+      # We use a dedicated action that is designed to work with the authenticated session.
+      - name: Deploy to Firebase
+        uses: w9jds/firebase-action@master
+        with:
+          action: deploy
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          # The firebase_token is automatically handled by the action using the authenticated session
+          firebase_token: ${{ secrets.FIREBASE_TOKEN }}
+          only: 'functions'
