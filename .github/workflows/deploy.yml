@@ -30,19 +30,38 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: 'github-actions-deployer@cartspark-85cbc.iam.gserviceaccount.com'
 
-      - name: Install Firebase CLI
-        run: npm install -g firebase-tools
-
       - name: Install dependencies for functions
         run: npm --prefix functions install
 
-      - name: Deploy to Firebase
-        run: firebase deploy --project ${{ secrets.GCP_PROJECT_ID }} --only functions --force
-
-      # --- THIS IS THE NEW, FINAL STEP ---
-      # After a successful deployment, we manually make the webhook public.
-      - name: Make Webhook Public
+      # --- THIS IS THE NEW, FINAL DEPLOY STEP ---
+      # We now use the gcloud CLI directly, which is more robust.
+      - name: Deploy to Firebase using gcloud
         run: |
-          gcloud functions add-invoker-policy-binding stripewebhook \
+          gcloud functions deploy onusercreate \
+            --gen2 \
+            --runtime=nodejs20 \
+            --project=${{ secrets.GCP_PROJECT_ID }} \
             --region=us-central1 \
-            --member="allUsers"
+            --source=functions \
+            --entry-point=onusercreate \
+            --trigger-event-filters="type=google.firebase.auth.user.v1.created"
+            
+          gcloud functions deploy createstripecheckout \
+            --gen2 \
+            --runtime=nodejs20 \
+            --project=${{ secrets.GCP_PROJECT_ID }} \
+            --region=us-central1 \
+            --source=functions \
+            --entry-point=createstripecheckout \
+            --trigger-http \
+            --no-allow-unauthenticated
+
+          gcloud functions deploy stripewebhook \
+            --gen2 \
+            --runtime=nodejs20 \
+            --project=${{ secrets.GCP_PROJECT_ID }} \
+            --region=us-central1 \
+            --source=functions \
+            --entry-point=stripewebhook \
+            --trigger-http \
+            --allow-unauthenticated
