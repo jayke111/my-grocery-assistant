@@ -1,31 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../AppContext';
-import { LoadingSpinner, ErrorMessage, Icon, CopyButton } from './UIComponents';
+import { LoadingSpinner, ErrorMessage, Icon, CopyButton, ProTeaser } from './UIComponents';
 import { hasItems } from '../utils';
 import { InitialListInput } from './InitialListInput';
-import { ComingSoon } from './ComingSoon';
 
 export const ListManager = ({ listData, onSort, onClear, isGuest }) => {
-    const { 
-        isPremium, handleToggleCheck, handleEditStart, handleEditSave, 
-        handleEditChange, handleDeleteItem, handleResort, handleAddNewItem, 
-        newItem, setNewItem, needsResort, isLoading, error, inputError, 
-        editingItem, categoryOrder, generatePlainTextList, setShowAddMealToListModal, 
+    const {
+        isPremium, handleToggleCheck, handleEditStart, handleEditSave,
+        handleEditChange, handleDeleteItem, handleResort, handleAddNewItem,
+        newItem, setNewItem, needsResort, isLoading, error, inputError,
+        editingItem, categoryOrder, generatePlainTextList, setShowAddMealToListModal,
         setInputError, setError,
         suggestedItems, setSuggestedItems, isSuggestingItems, handleSuggestItems,
         mealIdea, isGeneratingMeal, handleGetMealIdea,
         handleSaveMealIdea,
-        // --- ADDED: Get the new function from context ---
         handleUpdateListName
     } = useAppContext();
 
     const [isSavingMeal, setIsSavingMeal] = useState(false);
-    // --- ADDED: New state for managing the title edit ---
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [titleText, setTitleText] = useState(listData?.name || '');
 
     useEffect(() => {
-        // Keep the local title in sync if the list data changes
         setTitleText(listData?.name || '');
     }, [listData]);
 
@@ -48,7 +44,6 @@ export const ListManager = ({ listData, onSort, onClear, isGuest }) => {
         setTimeout(() => setIsSavingMeal(false), 2000);
     };
 
-    // --- ADDED: New handler for saving the list title ---
     const handleTitleSave = () => {
         if (titleText.trim() && titleText !== listData.name) {
             handleUpdateListName(listData.id, titleText.trim());
@@ -60,8 +55,7 @@ export const ListManager = ({ listData, onSort, onClear, isGuest }) => {
         hasItems(listData) ? (
             <div className="space-y-6">
                 {error && !inputError && <ErrorMessage message={error} />}
-                
-                {/* --- MODIFIED: This is now an editable title --- */}
+
                 <div className="text-center">
                     {isEditingTitle ? (
                         <input
@@ -74,12 +68,12 @@ export const ListManager = ({ listData, onSort, onClear, isGuest }) => {
                             autoFocus
                         />
                     ) : (
-                        <h2 onClick={() => setIsEditingTitle(true)} className="text-2xl font-bold text-center text-gray-800 cursor-pointer hover:text-blue-600">
-                            {listData.name || "Your Organized List"} ✏️
+                        <h2 onClick={() => !isGuest && setIsEditingTitle(true)} className={`text-2xl font-bold text-center text-gray-800 ${!isGuest ? 'cursor-pointer hover:text-blue-600' : ''}`}>
+                            {listData.name || "Your Organized List"} {!isGuest && '✏️'}
                         </h2>
                     )}
                 </div>
-                
+
                 {listData.plannedMeals && listData.plannedMeals.length > 0 && (
                     <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
                         <p className="text-sm font-semibold text-indigo-800">Meals for this list: <span className="font-normal">{listData.plannedMeals.join(', ')}</span></p>
@@ -93,7 +87,7 @@ export const ListManager = ({ listData, onSort, onClear, isGuest }) => {
                     </div>
                 )}
                 {isLoading && <LoadingSpinner small/>}
-                
+
                 {!isGuest && (
                     <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                         <button onClick={() => setShowAddMealToListModal(true)} className="w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition">🍳 Add Meal to List</button>
@@ -154,7 +148,7 @@ export const ListManager = ({ listData, onSort, onClear, isGuest }) => {
                     }
                     return null;
                 })}
-                
+
                 <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
                   <button onClick={handleGetMealIdea} disabled={isGeneratingMeal || isLoading} className="w-full bg-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-700 disabled:bg-purple-300 transition-all">✨ Get Meal Idea</button>
                   {isGeneratingMeal && <LoadingSpinner small />}
@@ -162,7 +156,7 @@ export const ListManager = ({ listData, onSort, onClear, isGuest }) => {
                       <div className="mt-4 p-4 bg-white rounded-md border">
                           <div className="flex justify-between items-center mb-2">
                               <h4 className="font-semibold text-lg text-purple-800">{mealIdea.title}</h4>
-                              <button 
+                              <button
                                 onClick={onSaveMealClick}
                                 disabled={isSavingMeal}
                                 className={`text-xs font-bold py-1 px-3 rounded-full transition ${isSavingMeal ? 'bg-green-200 text-green-800' : 'bg-purple-200 text-purple-800 hover:bg-purple-300'}`}
@@ -182,8 +176,8 @@ export const ListManager = ({ listData, onSort, onClear, isGuest }) => {
                                   {mealIdea.needs.map((item, i) => (
                                       <li key={i} className="flex items-center justify-between">
                                           <span className="text-sm text-gray-800">{item}</span>
-                                          <button 
-                                            onClick={() => handleAddNewItem(item)} 
+                                          <button
+                                            onClick={() => handleAddNewItem(item)}
                                             disabled={isGuest}
                                             className="text-xs bg-green-200 text-green-800 font-bold py-1 px-3 rounded-full hover:bg-green-300 transition disabled:bg-gray-200 disabled:text-gray-500 disabled:cursor-not-allowed"
                                           >
@@ -200,22 +194,24 @@ export const ListManager = ({ listData, onSort, onClear, isGuest }) => {
                       </div>
                   )}
                 </div>
-                
+
                 <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <CopyButton textToCopy={generatePlainTextList()} />
-                    <button 
-                        onClick={onClear} 
-                        disabled={isLoading} 
+                    <button
+                        onClick={onClear}
+                        disabled={isLoading}
                         className="w-full flex items-center justify-center gap-x-2 py-3 px-4 rounded-lg font-semibold text-gray-700 bg-gray-200 hover:bg-red-500 hover:text-white transition-all duration-300"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         Start New List
                     </button>
                 </div>
-                {isGuest && <ComingSoon />}
             </div>
         ) : (
-            <InitialListInput onSort={onSort} onClear={onClear} isLoading={isLoading} error={error} inputError={inputError} setInputError={setInputError} setError={setError} listName={listData?.name || "New List"} isGuest={isGuest} />
+            <>
+                <InitialListInput onSort={onSort} onClear={onClear} isLoading={isLoading} error={error} inputError={inputError} setInputError={setInputError} setError={setError} listName={listData?.name || "New List"} isGuest={isGuest} />
+                {isGuest && <ProTeaser />}
+            </>
         )
     );
 };

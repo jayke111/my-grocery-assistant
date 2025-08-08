@@ -95,12 +95,43 @@ export const AppProvider = ({ children }) => {
             const unsubMeals = firestore.onSnapshot(mealsQuery, (snapshot) => {
                 setUserMeals(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => a.name.localeCompare(b.name)));
             });
-            const planQuery = firestore.doc(db, "mealPlans", user.uid);
-            const unsubPlan = firestore.onSnapshot(planQuery, (docSnap) => {
-                if(docSnap.exists()) {
-                    setMealPlan(docSnap.data());
+            
+            const planDocRef = firestore.doc(db, "mealPlans", user.uid);
+            const unsubPlan = firestore.onSnapshot(planDocRef, (docSnap) => {
+                const newPlanTemplate = { 
+                    ownerId: user.uid, 
+                    planVersion: 2,
+                    days: { 
+                        Sunday: { breakfast: [], lunch: [], dinner: [] },
+                        Monday: { breakfast: [], lunch: [], dinner: [] },
+                        Tuesday: { breakfast: [], lunch: [], dinner: [] },
+                        Wednesday: { breakfast: [], lunch: [], dinner: [] },
+                        Thursday: { breakfast: [], lunch: [], dinner: [] },
+                        Friday: { breakfast: [], lunch: [], dinner: [] },
+                        Saturday: { breakfast: [], lunch: [], dinner: [] }
+                    } 
+                };
+
+                if (docSnap.exists()) {
+                    const planData = docSnap.data();
+                    if (!planData.planVersion || planData.planVersion < 2) {
+                        console.log("Old meal plan detected. Migrating to new structure.");
+                        firestore.setDoc(planDocRef, newPlanTemplate).then(() => {
+                            console.log("Meal plan migrated successfully.");
+                            setMealPlan(newPlanTemplate);
+                        });
+                    } else {
+                        setMealPlan(planData);
+                    }
+                } else {
+                    console.log("No meal plan found. Creating a new one.");
+                    firestore.setDoc(planDocRef, newPlanTemplate).then(() => {
+                        console.log("New meal plan created successfully.");
+                        setMealPlan(newPlanTemplate);
+                    });
                 }
             });
+
             setDataLoading(false);
             return () => { 
                 unsubUser(); 
@@ -154,7 +185,6 @@ export const AppProvider = ({ children }) => {
         try {
             const idToken = await user.getIdToken();
             
-            // --- MODIFIED: Corrected the live project ID ---
             const functionUrl = process.env.NODE_ENV === 'development' 
                 ? 'http://127.0.0.1:5001/cartspark-85cbc/us-central1/createStripeCheckout'
                 : 'https://us-central1-cartspark-85cbc.cloudfunctions.net/createStripeCheckout';
@@ -500,16 +530,26 @@ export const AppProvider = ({ children }) => {
     };
 
     const handleAddMealToPlan = async (meal, day, mealType) => {
-        if (!user || !day || !mealType || !mealPlan) return;
+        if (!user || !day || !mealType || !mealPlan || !userMeals) return;
+
+        const fullMealData = userMeals.find(m => m.id === meal.id);
+
+        if (!fullMealData) {
+            setError("Could not find the selected meal template.");
+            return;
+        }
         
-        const simpleMeal = { id: meal.id, name: meal.name, ingredients: meal.ingredients };
-        const newDays = { ...mealPlan.days };
+        const simpleMeal = { id: fullMealData.id, name: fullMealData.name, ingredients: fullMealData.ingredients };
+        const newDays = JSON.parse(JSON.stringify(mealPlan.days));
         
-        if (!newDays[day][mealType]) {
+        if (!newDays[day] || typeof newDays[day] !== 'object' || Array.isArray(newDays[day])) {
+            newDays[day] = { breakfast: [], lunch: [], dinner: [] };
+        }
+        if (!Array.isArray(newDays[day][mealType])) {
             newDays[day][mealType] = [];
         }
         
-        newDays[day][mealType] = [...newDays[day][mealType], simpleMeal];
+        newDays[day][mealType].push(simpleMeal);
         
         setMealPlan(prevPlan => ({ ...prevPlan, days: newDays }));
 
@@ -518,16 +558,26 @@ export const AppProvider = ({ children }) => {
             await firestore.setDoc(planDocRef, { days: newDays }, { merge: true });
         } catch (e) {
             console.error("Error updating meal plan:", e);
-            setError("Could not update meal plan. Please try again.");
+setError("Could not update meal plan. Please try again.");
             setMealPlan(mealPlan); 
         }
     };
     
+    // --- FINAL BUG FIX: PRESERVING PLANNED MEALS ---
+    // This function now correctly preserves AND updates the plannedMeals array.
     const handleAddMealToList = (meal) => {
         const currentItems = activeListData?.items ? Object.values(activeListData.items).flat().map(item => item.name) : [];
-        const combinedList = [...new Set([...currentItems, ...meal.ingredients])];
-        const newListString = combinedList.join('\n');
-        handleSortList(newListString, activeListId);
+        const combinedIngredients = [...new Set([...currentItems, ...meal.ingredients])];
+        const newListString = combinedIngredients.join('\n');
+        
+        // Get the current list of planned meal names
+        const currentPlannedMeals = activeListData?.plannedMeals || [];
+        // Create a new set of planned meals, adding the new meal's name to preserve the list and prevent duplicates
+        const newPlannedMealsSet = new Set([...currentPlannedMeals, meal.name]);
+        const newPlannedMeals = Array.from(newPlannedMealsSet);
+        
+        // Pass the preserved AND UPDATED list of planned meals to the sorting function.
+        handleSortList(newListString, activeListId, newPlannedMeals);
         setShowAddMealToListModal(false);
     };
 
@@ -549,20 +599,48 @@ export const AppProvider = ({ children }) => {
     };
 
     const handleGenerateShoppingList = async () => {
-        if (!user || !mealPlan) return;
+        if (!user) return;
         setIsLoading(true);
+        setError('');
         try {
+            const planDocRef = firestore.doc(db, "mealPlans", user.uid);
+            const docSnap = await firestore.getDoc(planDocRef);
+
+            if (!docSnap.exists()) {
+                throw new Error("No meal plan found for this user.");
+            }
+            const currentMealPlan = docSnap.data();
+
             const allIngredients = new Set();
             const plannedMeals = new Set();
             
-            Object.values(mealPlan.days).forEach(day => {
-                Object.values(day).forEach(mealType => {
-                    mealType.forEach(meal => {
-                        plannedMeals.add(meal.name);
-                        meal.ingredients.forEach(ing => allIngredients.add(ing));
+            Object.values(currentMealPlan.days).forEach(day => {
+                if (Array.isArray(day)) { 
+                    day.forEach(meal => {
+                        if (meal && meal.ingredients && Array.isArray(meal.ingredients)) {
+                            plannedMeals.add(meal.name);
+                            meal.ingredients.forEach(ing => allIngredients.add(ing));
+                        }
                     });
-                });
+                } else if (day && typeof day === 'object') { 
+                    Object.values(day).forEach(mealTypeArray => {
+                        if (Array.isArray(mealTypeArray)) {
+                            mealTypeArray.forEach(meal => {
+                                if (meal && meal.ingredients && Array.isArray(meal.ingredients)) {
+                                    plannedMeals.add(meal.name);
+                                    meal.ingredients.forEach(ing => allIngredients.add(ing));
+                                }
+                            });
+                        }
+                    });
+                }
             });
+
+            if (allIngredients.size === 0) {
+                setError("Your meal plan is empty. Add some meals to generate a list.");
+                setIsLoading(false);
+                return;
+            }
 
             const listString = Array.from(allIngredients).join('\n');
             
@@ -580,6 +658,7 @@ export const AppProvider = ({ children }) => {
             setActiveListId(newListRef.id);
             setPage('home');
         } catch (e) {
+            console.error("Error generating shopping list:", e);
             setError("Could not generate shopping list.");
         } finally {
             setIsLoading(false);
@@ -615,6 +694,7 @@ export const AppProvider = ({ children }) => {
                 setIsUpdatingMealPlan(true);
                 const newPlan = { 
                     ownerId: user.uid, 
+                    planVersion: 2,
                     days: { 
                         Sunday: { breakfast: [], lunch: [], dinner: [] },
                         Monday: { breakfast: [], lunch: [], dinner: [] },
