@@ -1,6 +1,6 @@
-// V2 SDK IMPORTS - CORRECTED
-const { onCall, HttpsError, onRequest } = require("firebase-functions/v2/https");
-const { onUserCreated } = require("firebase-functions/v2/identity");
+// V2 SDK IMPORTS
+const { onRequest, onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onUserCreated } = require("firebase-functions/v2/auth");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 const stripe = require("stripe");
@@ -8,6 +8,7 @@ const stripe = require("stripe");
 admin.initializeApp();
 
 // This webhook securely accesses secrets from Secret Manager.
+// It MUST remain public so Stripe's servers can call it.
 exports.stripewebhook = onRequest({ secrets: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"] }, async (request, response) => {
     const signature = request.headers["stripe-signature"];
     let event;
@@ -21,16 +22,15 @@ exports.stripewebhook = onRequest({ secrets: ["STRIPE_SECRET_KEY", "STRIPE_WEBHO
 
     if (event.type === "checkout.session.completed") {
         const session = event.data.object;
-        const customerEmail = session.customer_details.email;
-        if (!customerEmail) {
-            logger.error("No customer email found in Stripe session.");
-            return response.status(400).send("Bad Request: Missing customer email.");
+        // Retrieve the Firebase UID from the metadata we passed during checkout.
+        const firebaseUID = session.client_reference_id;
+
+        if (!firebaseUID) {
+            logger.error("No client_reference_id (Firebase UID) found in Stripe session.");
+            return response.status(400).send("Bad Request: Missing client_reference_id.");
         }
 
         try {
-            const userRecord = await admin.auth().getUserByEmail(customerEmail);
-            const firebaseUID = userRecord.uid;
-
             const userDocRef = admin.firestore().collection("users").doc(firebaseUID);
             await userDocRef.update({
                 subscriptionStatus: "active",
@@ -38,37 +38,47 @@ exports.stripewebhook = onRequest({ secrets: ["STRIPE_SECRET_KEY", "STRIPE_WEBHO
             });
             logger.info(`Successfully granted Pro access to user: ${firebaseUID}`);
         } catch (err) {
-            logger.error(`Failed to grant Pro access for email ${customerEmail}:`, err);
+            logger.error(`Failed to grant Pro access for user ${firebaseUID}:`, err);
             return response.status(500).send("Internal Server Error");
         }
     }
     response.status(200).send();
 });
 
-// This function is triggered by Firebase Auth when a new user is created.
-exports.onusercreate = onUserCreated(async (event) => {
+// This function is triggered by Firebase Auth, not a URL, so it's fine.
+exports.onUserCreated = onUserCreated(async (event) => {
     const user = event.data;
-    const { uid, email, displayName } = user; // Added displayName
+    const { uid, email } = user;
     logger.info(`New user signed up: ${uid}, Email: ${email}`);
     try {
         const userDocRef = admin.firestore().collection("users").doc(uid);
-        await userDocRef.set({
-            email: email,
-            displayName: displayName || null, // Add displayName, handle if it's not present
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            subscriptionStatus: "inactive",
+        // Use a transaction with .create() for a more robust write.
+        // .create() will fail if the document already exists, preventing accidental overwrites.
+        await admin.firestore().runTransaction(async (transaction) => {
+            transaction.create(userDocRef, {
+                email: email,
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                subscriptionStatus: "inactive",
+            });
         });
         logger.info(`Successfully created user document for new user: ${uid}`);
     } catch (error) {
-        logger.error(`Failed to create documents for user: ${uid}`, error);
+        // If the error is that the document already exists, it's not a critical failure.
+        // This can happen if the function is triggered more than once for the same user.
+        if (error.code === 6) { // Firestore error code for ALREADY_EXISTS
+            logger.warn(`User document for ${uid} already exists. Function may have run twice.`);
+        } else {
+            logger.error(`Failed to create user document for user: ${uid}`, error);
+        }
     }
 });
 
-// This is a callable function to create a share invitation.
+// Add this new function at the end of your functions/index.js file
+
 exports.createShareInvite = onCall(async (request) => {
   // Ensure the user is logged in
   if (!request.auth) {
-    throw new HttpsError( // CORRECTED
+    throw new HttpsError(
       "unauthenticated",
       "You must be logged in to share a list.",
     );
@@ -78,7 +88,7 @@ exports.createShareInvite = onCall(async (request) => {
 
   // Validate the data received from the front-end
   if (!listId || !recipientEmail) {
-    throw new HttpsError( // CORRECTED
+    throw new HttpsError(
       "invalid-argument",
       "The function must be called with a 'listId' and 'recipientEmail'.",
     );
@@ -86,7 +96,7 @@ exports.createShareInvite = onCall(async (request) => {
 
   // Basic email format check
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) {
-    throw new HttpsError( // CORRECTED
+    throw new HttpsError(
       "invalid-argument",
       "The email address provided is not valid.",
     );
@@ -94,15 +104,39 @@ exports.createShareInvite = onCall(async (request) => {
 
   const senderId = request.auth.uid;
 
-  // Create a new document in a new "invites" collection in Firestore
-  const inviteRef = await admin.firestore().collection("invites").add({
-    listId: listId,
-    senderId: senderId,
-    recipientEmail: recipientEmail.toLowerCase(),
-    status: "pending",
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-  });
+  // Security Check: Verify the sender is a member of the list they want to share.
+  const listRef = admin.firestore().collection("lists").doc(listId);
+  const listDoc = await listRef.get();
 
-  // Return the unique ID of the new invitation document
-  return { inviteId: inviteRef.id };
+  if (!listDoc.exists) {
+    throw new HttpsError("not-found", "The specified list does not exist.");
+  }
+
+  const listData = listDoc.data();
+  if (!listData.members || !listData.members.includes(senderId)) {
+    throw new HttpsError(
+      "permission-denied",
+      "You do not have permission to share this list.",
+    );
+  }
+
+  try {
+    // Create a new document in a new "invites" collection in Firestore
+    const inviteRef = await admin.firestore().collection("invites").add({
+      listId: listId,
+      senderId: senderId,
+      recipientEmail: recipientEmail.toLowerCase(),
+      status: "pending",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Return the unique ID of the new invitation document
+    return { inviteId: inviteRef.id };
+  } catch (error) {
+    logger.error("Failed to create share invite:", error);
+    throw new HttpsError(
+      "internal",
+      "An error occurred while creating the invitation.",
+    );
+  }
 });
