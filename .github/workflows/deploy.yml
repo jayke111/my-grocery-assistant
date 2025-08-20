@@ -30,7 +30,8 @@ jobs:
       - name: Deploy to Firebase
         uses: w9jds/firebase-action@master
         with:
-          args: deploy --only functions --project cartspark-8c5c
+          # CORRECTED the project ID typo
+          args: deploy --only functions --project cartspark-85cbc
         env:
           # This token allows GitHub to authenticate with Firebase.
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
