@@ -23,7 +23,6 @@ export const useAppContext = () => {
 };
 
 export const AppProvider = ({ children }) => {
-    // ... (All state variables remain the same)
     const geminiApiKey = process.env.REACT_APP_GEMINI_API_KEY; 
     const [user, setUser] = useState(null);
     const [authLoading, setAuthLoading] = useState(true);
@@ -61,7 +60,6 @@ export const AppProvider = ({ children }) => {
     const [mealModalConfig, setMealModalConfig] = useState({ isOpen: false });
     const [showSuggestionsModal, setShowSuggestionsModal] = useState(false);
 
-    // --- THIS IS THE FIX: This function now correctly fetches meals from the user's sub-collection ---
     const refreshUserMeals = useCallback(async () => {
         if (!user) return;
         try {
@@ -86,10 +84,8 @@ export const AppProvider = ({ children }) => {
     useEffect(() => {
         if (user) {
             setDataLoading(true);
-
             const userDocRef = firestore.doc(db, "users", user.uid);
             const listsQuery = firestore.query(firestore.collection(db, "lists"), firestore.where("members", "array-contains", user.uid));
-            // --- THIS IS THE FIX: Point the meals query to the correct sub-collection ---
             const mealsQuery = firestore.query(firestore.collection(db, "users", user.uid, "meals"), firestore.orderBy("name"));
             const planDocRef = firestore.doc(db, "mealPlans", user.uid);
 
@@ -123,7 +119,6 @@ export const AppProvider = ({ children }) => {
         }
     }, [user]);
 
-    // ... (useEffect for activeListId remains the same)
     useEffect(() => {
         if (activeListId && user) {
             const listDocRef = firestore.doc(db, "lists", activeListId);
@@ -145,95 +140,6 @@ export const AppProvider = ({ children }) => {
         }
     }, [activeListId, user]);
 
-
-    // --- THIS IS THE FIX: All meal-related functions now point to the correct sub-collection ---
-
-    const handleCreateNewMeal = () => {
-        setMealModalConfig({
-            isOpen: true,
-            title: "Create New Meal",
-            confirmText: "Save Meal",
-            onSubmit: async ({ name, ingredients }) => {
-                if (name && ingredients && user) {
-                    const ingredientsArray = ingredients.split(',').map(item => item.trim()).filter(Boolean);
-                    // CORRECTED PATH
-                    await firestore.addDoc(firestore.collection(db, "users", user.uid, "meals"), { name, ownerId: user.uid, createdAt: firestore.serverTimestamp(), ingredients: ingredientsArray });
-                }
-            }
-        });
-    };
-
-    const handleEditMeal = (mealToEdit) => {
-        setMealModalConfig({
-            isOpen: true,
-            title: "Edit Meal",
-            confirmText: "Save Changes",
-            initialMeal: mealToEdit,
-            onSubmit: async ({ name, ingredients }) => {
-                if (name && ingredients) {
-                    const ingredientsArray = ingredients.split(',').map(item => item.trim()).filter(Boolean);
-                    // CORRECTED PATH
-                    const mealDocRef = firestore.doc(db, "users", user.uid, "meals", mealToEdit.id);
-                    await firestore.updateDoc(mealDocRef, { name, ingredients: ingredientsArray });
-                }
-            }
-        });
-    };
-
-    const handleDeleteMeal = (mealId) => {
-        setPromptConfig({
-            isOpen: true,
-            type: 'confirm',
-            title: "Delete Meal",
-            message: "Are you sure you want to delete this meal template?",
-            confirmText: "Delete",
-            onSubmit: async () => {
-                // CORRECTED PATH
-                await firestore.deleteDoc(firestore.doc(db, "users", user.uid, "meals", mealId));
-            }
-        });
-    };
-
-    const handleSaveMealIdea = async (mealIdeaToSave) => {
-        if (!mealIdeaToSave || !user) return;
-        const allIngredients = [...mealIdeaToSave.has, ...mealIdeaToSave.needs];
-        try {
-            // CORRECTED PATH
-            await firestore.addDoc(firestore.collection(db, "users", user.uid, "meals"), {
-                name: mealIdeaToSave.title,
-                ownerId: user.uid,
-                createdAt: firestore.serverTimestamp(),
-                ingredients: allIngredients
-            });
-            setPromptConfig({
-                isOpen: true,
-                type: 'alert',
-                title: 'Meal Saved!',
-                message: `"${mealIdeaToSave.title}" has been added to your meal templates.`,
-            });
-        } catch (e) {
-            console.error("Error saving meal idea:", e);
-            setError("Could not save the meal template.");
-        }
-    };
-    
-    const handleAddSuggestedMeal = async (meal) => {
-        if (!meal || !user) return;
-        try {
-            // CORRECTED PATH
-            await firestore.addDoc(firestore.collection(db, "users", user.uid, "meals"), {
-                name: meal.name,
-                ownerId: user.uid,
-                createdAt: firestore.serverTimestamp(),
-                ingredients: meal.ingredients
-            });
-        } catch (e) {
-            console.error("Error adding suggested meal:", e);
-            setError("Could not add the suggested meal.");
-        }
-    };
-    
-    // ... (All other functions for lists, auth, payments, etc., remain unchanged)
     const handleProceedToPayment = async (priceId) => {
         if (!user) {
             setError("You must be logged in to subscribe.");
@@ -577,6 +483,99 @@ export const AppProvider = ({ children }) => {
         });
     };
     
+    // --- THIS IS THE FIX: All meal-related functions now handle the 'instructions' field ---
+    const handleCreateNewMeal = () => {
+        setMealModalConfig({
+            isOpen: true,
+            title: "Create New Meal",
+            confirmText: "Save Meal",
+            onSubmit: async ({ name, ingredients, instructions }) => {
+                if (name && ingredients && user) {
+                    const ingredientsArray = ingredients.split(',').map(item => item.trim()).filter(Boolean);
+                    await firestore.addDoc(firestore.collection(db, "users", user.uid, "meals"), { 
+                        name, 
+                        ownerId: user.uid, 
+                        createdAt: firestore.serverTimestamp(), 
+                        ingredients: ingredientsArray,
+                        instructions: instructions || "" // Save instructions
+                    });
+                }
+            }
+        });
+    };
+
+    const handleEditMeal = (mealToEdit) => {
+        setMealModalConfig({
+            isOpen: true,
+            title: "Edit Meal",
+            confirmText: "Save Changes",
+            initialMeal: mealToEdit,
+            onSubmit: async ({ name, ingredients, instructions }) => {
+                if (name && ingredients) {
+                    const ingredientsArray = ingredients.split(',').map(item => item.trim()).filter(Boolean);
+                    const mealDocRef = firestore.doc(db, "users", user.uid, "meals", mealToEdit.id);
+                    await firestore.updateDoc(mealDocRef, { 
+                        name, 
+                        ingredients: ingredientsArray,
+                        instructions: instructions || "" // Save instructions
+                    });
+                }
+            }
+        });
+    };
+
+    const handleDeleteMeal = (mealId) => {
+        setPromptConfig({
+            isOpen: true,
+            type: 'confirm',
+            title: "Delete Meal",
+            message: "Are you sure you want to delete this meal template?",
+            confirmText: "Delete",
+            onSubmit: async () => {
+                await firestore.deleteDoc(firestore.doc(db, "users", user.uid, "meals", mealId));
+            }
+        });
+    };
+
+    const handleSaveMealIdea = async (mealIdeaToSave) => {
+        if (!mealIdeaToSave || !user) return;
+        const allIngredients = [...mealIdeaToSave.has, ...mealIdeaToSave.needs];
+        try {
+            await firestore.addDoc(firestore.collection(db, "users", user.uid, "meals"), {
+                name: mealIdeaToSave.title,
+                ownerId: user.uid,
+                createdAt: firestore.serverTimestamp(),
+                ingredients: allIngredients,
+                instructions: mealIdeaToSave.instructions || "" // Save instructions
+            });
+            setPromptConfig({
+                isOpen: true,
+                type: 'alert',
+                title: 'Meal Saved!',
+                message: `"${mealIdeaToSave.title}" has been added to your meal templates.`,
+            });
+        } catch (e) {
+            console.error("Error saving meal idea:", e);
+            setError("Could not save the meal template.");
+        }
+    };
+    
+    const handleAddSuggestedMeal = async (meal) => {
+        if (!meal || !user) return;
+        try {
+            await firestore.addDoc(firestore.collection(db, "users", user.uid, "meals"), {
+                name: meal.name,
+                ownerId: user.uid,
+                createdAt: firestore.serverTimestamp(),
+                ingredients: meal.ingredients,
+                instructions: meal.instructions || "" // Save instructions
+            });
+        } catch (e) {
+            console.error("Error adding suggested meal:", e);
+            setError("Could not add the suggested meal.");
+        }
+    };
+
     const handleAddMealToPlan = async (meal, day, mealType) => {
         if (!user || !day || !mealType || !mealPlan || !userMeals) return;
 
@@ -803,7 +802,7 @@ setError("Could not update meal plan. Please try again.");
         });
         setUser({ ...auth.currentUser }); 
     };
-
+    
     const value = {
         user, authLoading, dataLoading, page, setPage, selectedArticle, setSelectedArticle,
         newItem, setNewItem, isLoading, setIsLoading, error, setError, mealIdea, setMealIdea,

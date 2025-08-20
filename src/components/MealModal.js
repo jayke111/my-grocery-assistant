@@ -1,78 +1,74 @@
 import React, { useState, useEffect } from 'react';
-import { useAppContext } from '../AppContext';
 
-// This is a specialized modal for creating and editing meals with two input fields.
-export const MealModal = () => {
-    const { mealModalConfig, setMealModalConfig } = useAppContext();
+export const MealModal = ({ isOpen, title, confirmText, initialMeal, onSubmit, onCancel }) => {
     const [name, setName] = useState('');
     const [ingredients, setIngredients] = useState('');
+    // --- ADDED: State for the new instructions field ---
+    const [instructions, setInstructions] = useState('');
 
     useEffect(() => {
-        if (mealModalConfig.isOpen) {
-            setName(mealModalConfig.initialMeal?.name || '');
-            setIngredients(mealModalConfig.initialMeal?.ingredients.join(', ') || '');
+        if (initialMeal) {
+            setName(initialMeal.name || '');
+            setIngredients(initialMeal.ingredients?.join(', ') || '');
+            // --- ADDED: Populate instructions if they exist ---
+            setInstructions(initialMeal.instructions || '');
+        } else {
+            setName('');
+            setIngredients('');
+            setInstructions('');
         }
-    }, [mealModalConfig.isOpen, mealModalConfig.initialMeal]);
+    }, [initialMeal, isOpen]);
 
-    const handleClose = () => {
-        setMealModalConfig({ isOpen: false });
-    };
+    if (!isOpen) return null;
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        if (name.trim() && ingredients.trim()) {
-            mealModalConfig.onSubmit({ name, ingredients });
-            handleClose();
-        }
+        // --- MODIFIED: Pass instructions back in the onSubmit callback ---
+        onSubmit({ name, ingredients, instructions });
+        onCancel(); // Close the modal after submit
     };
 
-    if (!mealModalConfig.isOpen) {
-        return null;
-    }
-
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-                <h3 className="text-lg font-bold mb-4">{mealModalConfig.title}</h3>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label htmlFor="meal-name" className="block text-sm font-medium text-gray-700">Meal Name</label>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+                <h3 className="text-xl font-bold mb-4">{title}</h3>
+                <form onSubmit={handleSubmit}>
+                    <div className="mb-4">
+                        <label htmlFor="mealName" className="block text-sm font-medium text-gray-700">Meal Name</label>
                         <input
                             type="text"
-                            id="meal-name"
+                            id="mealName"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            className="mt-1 w-full p-2 border border-gray-300 rounded-md"
+                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                             required
-                            autoFocus
                         />
                     </div>
-                    <div>
-                        <label htmlFor="meal-ingredients" className="block text-sm font-medium text-gray-700">Ingredients</label>
-                        <p className="text-xs text-gray-500 mb-1">Enter ingredients separated by commas.</p>
+                    <div className="mb-4">
+                        <label htmlFor="ingredients" className="block text-sm font-medium text-gray-700">Ingredients (comma-separated)</label>
                         <textarea
-                            id="meal-ingredients"
-                            rows="4"
+                            id="ingredients"
                             value={ingredients}
                             onChange={(e) => setIngredients(e.target.value)}
-                            className="mt-1 w-full p-2 border border-gray-300 rounded-md"
+                            rows="3"
+                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                             required
                         />
                     </div>
-                    <div className="mt-6 flex justify-end gap-x-3">
-                        <button
-                            type="button"
-                            onClick={handleClose}
-                            className="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition"
-                        >
-                            {mealModalConfig.confirmText || 'Save'}
-                        </button>
+                    {/* --- ADDED: The new textarea for instructions --- */}
+                    <div className="mb-6">
+                        <label htmlFor="instructions" className="block text-sm font-medium text-gray-700">Instructions (optional)</label>
+                        <textarea
+                            id="instructions"
+                            value={instructions}
+                            onChange={(e) => setInstructions(e.target.value)}
+                            rows="4"
+                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                    </div>
+                    <div className="flex justify-end space-x-3">
+                        <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
+                        <button type="submit" className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600">{confirmText}</button>
                     </div>
                 </form>
             </div>
