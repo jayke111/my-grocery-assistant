@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-// --- THIS IS THE FIX: Import auth to get the user's token ---
-import { auth } from '../firebase-config';
+// --- THIS IS THE FIX: Revert to using the Firebase SDK for Callable functions ---
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAppContext } from '../AppContext';
 
 const RecipeImporter = ({ onCancel }) => { 
@@ -22,32 +22,12 @@ const RecipeImporter = ({ onCancel }) => {
         setSuccessMessage('');
 
         try {
-            const user = auth.currentUser;
-            if (!user) {
-                throw new Error("You must be logged in to import recipes.");
-            }
-
-            // 1. Get the user's authentication token
-            const token = await user.getIdToken();
-            const functionUrl = 'https://us-central1-cartspark-85cbc.cloudfunctions.net/importRecipeFromUrl';
-
-            // 2. Make a standard fetch request with the token in the headers
-            const response = await fetch(functionUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ data: { url: url } })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `Request failed with status ${response.status}`);
-            }
-
-            const result = await response.json();
-            const resultData = result.data; // The actual data is nested in the 'data' property
+            // Use the Firebase SDK to call the function. This handles auth and CORS automatically.
+            const functions = getFunctions();
+            const importRecipe = httpsCallable(functions, 'importRecipeFromUrl');
+            
+            const result = await importRecipe({ url: url });
+            const resultData = result.data;
 
             if (resultData.success) {
                 setSuccessMessage(`Successfully imported "${resultData.mealData.name}"!`);
@@ -58,6 +38,7 @@ const RecipeImporter = ({ onCancel }) => {
 
         } catch (err) {
             console.error("Error importing recipe:", err);
+            // The SDK provides more detailed error messages
             setError(err.message || 'An unknown error occurred.');
         } finally {
             setIsLoading(false);
