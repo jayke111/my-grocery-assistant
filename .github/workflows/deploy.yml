@@ -19,11 +19,9 @@ jobs:
       - name: Deploy to Firebase
         uses: w9jds/firebase-action@master
         with:
-          action: deploy
           # --- THIS IS THE FIX ---
-          # We are now hardcoding the project ID directly.
-          project_id: 'cartspark-85cbc'
-          only: 'functions'
+          # The new syntax directly runs the firebase command.
+          args: deploy --only functions --project cartspark-85cbc
         env:
           # This token is a secret that allows GitHub to authenticate with Firebase.
           # It should already be configured in your repository secrets.
