@@ -3,8 +3,8 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const stripe = require("stripe");
 const cheerio = require("cheerio");
-// --- THIS IS THE FIX: Replace axios with got-scraping ---
-const { gotScraping } = require("got-scraping");
+// --- THIS IS THE FIX: Replace scraper with a stable library ---
+const rp = require("request-promise");
 
 admin.initializeApp();
 
@@ -103,8 +103,13 @@ exports.importRecipeFromUrl = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError("invalid-argument", "Please provide a recipe URL.");
     }
     try {
-        // --- THIS IS THE FIX: Use gotScraping to get the HTML ---
-        const { body: html } = await gotScraping(url);
+        // --- THIS IS THE FIX: Use request-promise to get the HTML ---
+        const html = await rp({
+            uri: url,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+        });
         const $ = cheerio.load(html);
         
         let recipeData = null;
