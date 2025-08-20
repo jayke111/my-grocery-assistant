@@ -1,9 +1,10 @@
-// V1 SDK IMPORTS - THIS IS THE FIX
+// V1 SDK IMPORTS
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const stripe = require("stripe");
-const axios = require("axios");
 const cheerio = require("cheerio");
+// --- THIS IS THE FIX: Replace axios with got-scraping ---
+const { gotScraping } = require("got-scraping");
 
 admin.initializeApp();
 
@@ -11,6 +12,7 @@ admin.initializeApp();
 exports.stripewebhook = functions
   .runWith({ secrets: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"] })
   .https.onRequest(async (request, response) => {
+    // ... (Stripe logic is unchanged)
     const signature = request.headers["stripe-signature"];
     let event;
     try {
@@ -44,6 +46,7 @@ exports.stripewebhook = functions
 
 // onUserCreated (V1 Syntax)
 exports.onUserCreated = functions.auth.user().onCreate(async (user) => {
+    // ... (onUserCreated logic is unchanged)
     const { uid, email } = user;
     functions.logger.info(`New user signed up: ${uid}, Email: ${email}`);
     try {
@@ -65,6 +68,7 @@ exports.onUserCreated = functions.auth.user().onCreate(async (user) => {
 
 // createShareInvite (V1 Syntax)
 exports.createShareInvite = functions.https.onCall(async (data, context) => {
+  // ... (createShareInvite logic is unchanged)
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "You must be logged in.");
   }
@@ -99,10 +103,10 @@ exports.importRecipeFromUrl = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError("invalid-argument", "Please provide a recipe URL.");
     }
     try {
-        const { data: html } = await axios.get(url, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
-        });
+        // --- THIS IS THE FIX: Use gotScraping to get the HTML ---
+        const { body: html } = await gotScraping(url);
         const $ = cheerio.load(html);
+        
         let recipeData = null;
         $('script[type="application/ld+json"]').each((i, el) => {
             const scriptContent = $(el).html();
