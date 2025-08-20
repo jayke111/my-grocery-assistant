@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v4
 
       # --- THIS IS THE DEFINITIVE FIX ---
-      # 1. Delete the old, incorrect package-lock.json file from the server.
+      # 1. Delete any old, incorrect package-lock.json file from the server.
       - name: Remove old package-lock.json
         run: rm -f functions/package-lock.json
 
@@ -30,7 +30,6 @@ jobs:
       - name: Deploy to Firebase
         uses: w9jds/firebase-action@master
         with:
-          # CORRECTED the project ID typo
           args: deploy --only functions --project cartspark-85cbc
         env:
           # This token allows GitHub to authenticate with Firebase.
