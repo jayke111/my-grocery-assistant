@@ -17,16 +17,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # --- THIS IS THE FIX ---
-      # Add this step to explicitly install dependencies in the 'functions' directory
+      # --- THIS IS THE DEFINITIVE FIX ---
+      # 1. Delete the old, incorrect package-lock.json file from the server.
+      - name: Remove old package-lock.json
+        run: rm -f functions/package-lock.json
+
+      # 2. Install dependencies to generate a new, correct package-lock.json.
       - name: Install Dependencies
         run: npm --prefix functions install
 
+      # 3. Deploy to Firebase using the newly installed dependencies.
       - name: Deploy to Firebase
         uses: w9jds/firebase-action@master
         with:
-          # The new syntax directly runs the firebase command.
-          args: deploy --only functions --project cartspark-85cbc
+          args: deploy --only functions --project cartspark-8c5c
         env:
-          # This token is a secret that allows GitHub to authenticate with Firebase.
+          # This token allows GitHub to authenticate with Firebase.
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
