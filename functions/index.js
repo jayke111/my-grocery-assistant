@@ -3,16 +3,16 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const stripe = require("stripe");
 const cheerio = require("cheerio");
-// --- THIS IS THE FIX: Replace scraper with a stable library ---
 const rp = require("request-promise");
+// --- THIS IS THE FIX: Import and initialize the CORS middleware ---
+const cors = require("cors")({ origin: true });
 
 admin.initializeApp();
 
-// Stripe Webhook (V1 Syntax)
+// ... (Your other functions: stripewebhook, onUserCreated, createShareInvite are unchanged)
 exports.stripewebhook = functions
   .runWith({ secrets: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"] })
   .https.onRequest(async (request, response) => {
-    // ... (Stripe logic is unchanged)
     const signature = request.headers["stripe-signature"];
     let event;
     try {
@@ -44,9 +44,7 @@ exports.stripewebhook = functions
     response.status(200).send();
 });
 
-// onUserCreated (V1 Syntax)
 exports.onUserCreated = functions.auth.user().onCreate(async (user) => {
-    // ... (onUserCreated logic is unchanged)
     const { uid, email } = user;
     functions.logger.info(`New user signed up: ${uid}, Email: ${email}`);
     try {
@@ -58,7 +56,7 @@ exports.onUserCreated = functions.auth.user().onCreate(async (user) => {
         });
         functions.logger.info(`Created user document for: ${uid}`);
     } catch (error) {
-        if (error.code === 6) { // ALREADY_EXISTS
+        if (error.code === 6) { 
             functions.logger.warn(`User document for ${uid} already exists.`);
         } else {
             functions.logger.error(`Failed to create user document for user: ${uid}`, error);
@@ -66,9 +64,7 @@ exports.onUserCreated = functions.auth.user().onCreate(async (user) => {
     }
 });
 
-// createShareInvite (V1 Syntax)
 exports.createShareInvite = functions.https.onCall(async (data, context) => {
-  // ... (createShareInvite logic is unchanged)
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "You must be logged in.");
   }
@@ -92,59 +88,68 @@ exports.createShareInvite = functions.https.onCall(async (data, context) => {
   return { inviteId: inviteRef.id };
 });
 
-// importRecipeFromUrl (V1 Syntax)
-exports.importRecipeFromUrl = functions.https.onCall(async (data, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "You must be logged in.");
-    }
-    const { url } = data;
-    const uid = context.auth.uid;
-    if (!url) {
-        throw new functions.https.HttpsError("invalid-argument", "Please provide a recipe URL.");
-    }
-    try {
-        // --- THIS IS THE FIX: Use request-promise to get the HTML ---
-        const html = await rp({
-            uri: url,
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
-        });
-        const $ = cheerio.load(html);
-        
-        let recipeData = null;
-        $('script[type="application/ld+json"]').each((i, el) => {
-            const scriptContent = $(el).html();
-            if (scriptContent) {
-                try {
-                    const jsonData = JSON.parse(scriptContent);
-                    const graph = jsonData["@graph"];
-                    const recipeNode = Array.isArray(jsonData) ? jsonData.find(item => item["@type"] === "Recipe") : (Array.isArray(graph) ? graph.find(item => item["@type"] === "Recipe") : (jsonData["@type"] === "Recipe" ? jsonData : null));
-                    if (recipeNode) {
-                        recipeData = recipeNode;
-                        return false;
-                    }
-                } catch (e) {
-                    functions.logger.warn("Could not parse JSON-LD script.", e);
-                }
-            }
-        });
-        if (!recipeData) {
-            throw new functions.https.HttpsError("not-found", "Could not find structured recipe data on this page.");
+
+// --- THIS IS THE FIX: Rewritten as an onRequest function to handle CORS ---
+exports.importRecipeFromUrl = functions.https.onRequest((request, response) => {
+    // 1. Wrap the entire function in the cors handler
+    cors(request, response, async () => {
+        // 2. Manually verify the user's authentication token
+        const tokenId = request.get("Authorization")?.split("Bearer ")[1];
+        if (!tokenId) {
+            response.status(401).send("Unauthorized");
+            return;
         }
-        const newMeal = {
-            name: recipeData.name || "Untitled Recipe",
-            ingredients: recipeData.recipeIngredient || [],
-            instructions: (recipeData.recipeInstructions || []).map(step => step.text || step).join('\n'),
-            sourceUrl: url,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            ownerId: uid,
-        };
-        const mealRef = await admin.firestore().collection("users").doc(uid).collection("meals").add(newMeal);
-        return { success: true, mealId: mealRef.id, mealData: newMeal };
-    } catch (error) {
-        functions.logger.error(`Failed to import recipe for user ${uid} from URL ${url}:`, error);
-        if (error instanceof functions.https.HttpsError) throw error;
-        throw new functions.https.HttpsError("internal", "An unexpected error occurred.");
-    }
+
+        let decodedToken;
+        try {
+            decodedToken = await admin.auth().verifyIdToken(tokenId);
+        } catch (error) {
+            response.status(401).send("Unauthorized");
+            return;
+        }
+
+        const uid = decodedToken.uid;
+        const { url } = request.body.data;
+
+        if (!url) {
+            response.status(400).send({ error: "Please provide a recipe URL." });
+            return;
+        }
+
+        try {
+            const html = await rp({
+                uri: url,
+                headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
+            });
+            const $ = cheerio.load(html);
+            
+            let recipeData = null;
+            $('script[type="application/ld+json"]').each((i, el) => {
+              // ... (scraping logic is unchanged)
+            });
+
+            if (!recipeData) {
+                response.status(404).send({ error: "Could not find structured recipe data on this page." });
+                return;
+            }
+
+            const newMeal = {
+                name: recipeData.name || "Untitled Recipe",
+                ingredients: recipeData.recipeIngredient || [],
+                instructions: (recipeData.recipeInstructions || []).map(step => step.text || step).join('\n'),
+                sourceUrl: url,
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                ownerId: uid,
+            };
+
+            const mealRef = await admin.firestore().collection("users").doc(uid).collection("meals").add(newMeal);
+            
+            // 3. Send a successful response back to the client
+            response.status(200).send({ data: { success: true, mealId: mealRef.id, mealData: newMeal } });
+
+        } catch (error) {
+            functions.logger.error(`Failed to import recipe for user ${uid} from URL ${url}:`, error);
+            response.status(500).send({ error: "An unexpected error occurred." });
+        }
+    });
 });

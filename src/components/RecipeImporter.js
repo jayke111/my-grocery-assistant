@@ -1,12 +1,10 @@
-// src/components/RecipeImporter.js
-
 import React, { useState } from 'react';
-// ADD THESE TWO IMPORTS
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { useAppContext } from '../AppContext'; // To refresh the meal list
+// --- THIS IS THE FIX: Import auth to get the user's token ---
+import { auth } from '../firebase-config';
+import { useAppContext } from '../AppContext';
 
 const RecipeImporter = ({ onCancel }) => { 
-    const { refreshUserMeals } = useAppContext(); // Get the refresh function
+    const { refreshUserMeals } = useAppContext();
     const [url, setUrl] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -24,23 +22,42 @@ const RecipeImporter = ({ onCancel }) => {
         setSuccessMessage('');
 
         try {
-            // --- THIS IS THE NEW API CALL LOGIC ---
-            const functions = getFunctions();
-            const importRecipe = httpsCallable(functions, 'importRecipeFromUrl');
-            
-            const result = await importRecipe({ url: url });
-
-            if (result.data.success) {
-                setSuccessMessage(`Successfully imported "${result.data.mealData.name}"!`);
-                setUrl(''); // Clear the input on success
-                await refreshUserMeals(); // Refresh the meal list on the dashboard
-                setTimeout(() => onCancel(), 2000); // Close the importer after 2 seconds
+            const user = auth.currentUser;
+            if (!user) {
+                throw new Error("You must be logged in to import recipes.");
             }
-            // The cloud function will throw an error on failure, which is caught below.
+
+            // 1. Get the user's authentication token
+            const token = await user.getIdToken();
+            const functionUrl = 'https://us-central1-cartspark-85cbc.cloudfunctions.net/importRecipeFromUrl';
+
+            // 2. Make a standard fetch request with the token in the headers
+            const response = await fetch(functionUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ data: { url: url } })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Request failed with status ${response.status}`);
+            }
+
+            const result = await response.json();
+            const resultData = result.data; // The actual data is nested in the 'data' property
+
+            if (resultData.success) {
+                setSuccessMessage(`Successfully imported "${resultData.mealData.name}"!`);
+                setUrl('');
+                await refreshUserMeals();
+                setTimeout(() => onCancel(), 2000);
+            }
 
         } catch (err) {
             console.error("Error importing recipe:", err);
-            // Display a user-friendly message from the error thrown by the cloud function
             setError(err.message || 'An unknown error occurred.');
         } finally {
             setIsLoading(false);
