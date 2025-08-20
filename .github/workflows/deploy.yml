@@ -1,45 +1,30 @@
+# This is a basic workflow to help you get started with Actions
+
 name: Deploy to Firebase
 
+# Controls when the workflow will run
 on:
+  # Triggers the workflow on push events but only for the "main" branch
   push:
-    branches:
-      - main # This will trigger the deployment when you push to your main branch
+    branches: [ "main" ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
 
 jobs:
-  deploy:
-    # This gives the workflow the permissions it needs to get a token from GitHub
-    permissions:
-      contents: 'read'
-      id-token: 'write'
-
+  deploy_functions:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '20'
-
-      # This is the keyless authentication step. It provides the credentials.
-      - name: Authenticate to Google Cloud
-        id: auth
-        uses: 'google-github-actions/auth@v2'
-        with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: 'github-actions-deployer@cartspark-85cbc.iam.gserviceaccount.com'
-
-      - name: Install dependencies for functions
-        run: npm --prefix functions install
-
-      # --- THIS IS THE NEW, SIMPLER DEPLOY STEP ---
-      # We use a dedicated action that is designed to work with the authenticated session.
+      - uses: actions/checkout@v4
       - name: Deploy to Firebase
         uses: w9jds/firebase-action@master
         with:
           action: deploy
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          # The firebase_token is automatically handled by the action using the authenticated session
-          firebase_token: ${{ secrets.FIREBASE_TOKEN }}
+          # --- THIS IS THE FIX ---
+          # We are now hardcoding the project ID directly.
+          project_id: 'cartspark-85cbc'
           only: 'functions'
+        env:
+          # This token is a secret that allows GitHub to authenticate with Firebase.
+          # It should already be configured in your repository secrets.
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}

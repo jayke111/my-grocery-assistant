@@ -124,7 +124,8 @@ export const ListManager = ({ listData, onSort, onClear, isGuest }) => {
                                         {items.map((item, index) => (
                                             <tr key={`${category}-${index}-${item.name}`}>
                                                 <td className="w-8 py-1 align-top">
-                                                    {(isPremium || isGuest) && <input type="checkbox" checked={item.checked} onChange={() => handleToggleCheck(category, index)} className="h-5 w-5 mt-1 rounded border-gray-400 text-blue-600 focus:ring-blue-500 cursor-pointer"/>}
+                                                    {/* --- MODIFIED: Removed (isPremium || isGuest) condition --- */}
+                                                    <input type="checkbox" checked={item.checked} onChange={() => handleToggleCheck(category, index)} className="h-5 w-5 mt-1 rounded border-gray-400 text-blue-600 focus:ring-blue-500 cursor-pointer"/>
                                                 </td>
                                                 <td className="py-1">
                                                     {editingItem?.category === category && editingItem?.index === index ? (

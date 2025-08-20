@@ -1,142 +1,127 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../AppContext';
 import { ErrorMessage } from './UIComponents';
-
-// Import the Stripe JS library
 import { loadStripe } from '@stripe/stripe-js';
 
-// Initialize Stripe outside of the component render with your Publishable Key
+import mealPlanGif from '../assets/meal-plan-demo.gif';
+
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
 
+const FeatureCard = ({ icon, title, children, isGif = false }) => (
+    <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 flex flex-col">
+        {isGif ? (
+            <div className="w-full max-h-96 bg-gray-200 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
+                <img 
+                    src={mealPlanGif} 
+                    alt="Meal Plan to Grocery List feature" 
+                    className="rounded-lg object-contain w-full h-full"
+                />
+            </div>
+        ) : (
+            <div className="text-4xl mb-3">{icon}</div>
+        )}
+        <div className="flex-grow">
+            <h3 className="font-bold text-lg text-gray-800">{title}</h3>
+            <p className="text-gray-600 mt-1">{children}</p>
+        </div>
+    </div>
+);
+
+
 export const SubscribePage = () => {
-    const { user, handleGoogleLogin } = useAppContext();
+    // --- MODIFICATION: Import the new and existing payment functions ---
+    const { user, handleProceedToPayment, handleLoginAndCheckout } = useAppContext();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [selectedPlan, setSelectedPlan] = useState(null);
 
     const monthlyPriceId = process.env.REACT_APP_STRIPE_MONTHLY_PRICE_ID;
     const yearlyPriceId = process.env.REACT_APP_STRIPE_YEARLY_PRICE_ID;
 
-    // --- THIS IS THE NEW CLIENT-SIDE CHECKOUT HANDLER ---
-    const handleCheckout = async (priceId) => {
+    // --- MODIFICATION: This function now handles BOTH logged-in and guest users ---
+    const handlePaymentClick = async (priceId) => {
+        setSelectedPlan(priceId);
         setIsLoading(true);
-        setError(null);
 
-        if (!user) {
-            setError("You must be signed in to subscribe.");
-            setIsLoading(false);
-            return;
-        }
-
-        try {
-            const stripe = await stripePromise;
-
-            // This redirects the user directly to Stripe's checkout page.
-            // No cloud function is called.
-            const { error } = await stripe.redirectToCheckout({
-                lineItems: [{ price: priceId, quantity: 1 }],
-                mode: 'subscription',
-                successUrl: 'https://cartspark-85cbc.web.app/success',
-                cancelUrl: 'https://cartspark-85cbc.web.app',
-                customerEmail: user.email, // Pass the user's email to Stripe
-            });
-
-            if (error) {
-                setError(error.message);
-                setIsLoading(false);
-            }
-        } catch (err) {
-            console.error("Stripe redirect error:", err);
-            setError("Oops! An error occurred. Please try again.");
-            setIsLoading(false);
-        }
-    };
-
-    const renderWelcomeMessage = () => {
         if (user) {
-            return (
-                <>
-                    <h2 className="text-2xl md:text-3xl font-bold text-gray-800 text-center">Welcome, {user.displayName}!</h2>
-                    <p className="mt-2 text-gray-600 text-center">You're one step away from unlocking CartSpark Pro.</p>
-                </>
-            );
+            // If user is already logged in, go straight to payment
+            await handleProceedToPayment(priceId);
+        } else {
+            // If user is a guest, handle login AND checkout
+            await handleLoginAndCheckout(priceId);
         }
-        return (
-            <>
-                <h2 className="text-2xl md:text-3xl font-bold text-gray-800 text-center">Go Pro and Unlock Your Shopping Assistant</h2>
-                <p className="mt-2 text-gray-600 text-center">Sign in to save multiple lists, plan your meals, and get an ad-free experience!</p>
-            </>
-        );
-    };
 
-    const renderActionButtons = () => {
-        if (user) {
-            return (
-                <div className="mt-8 space-y-4">
-                    <button 
-                        onClick={() => handleCheckout(monthlyPriceId)} 
-                        disabled={isLoading}
-                        className="w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400"
-                    >
-                        {isLoading ? 'Redirecting...' : 'Subscribe Monthly - $0.99/mo'}
-                    </button>
-                    <button 
-                        onClick={() => handleCheckout(yearlyPriceId)} 
-                        disabled={isLoading}
-                        className="w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400"
-                    >
-                        {isLoading ? 'Redirecting...' : 'Subscribe Yearly - $9.99/yr (2 months free!)'}
-                    </button>
-                </div>
-            );
-        }
-        return (
-             <button 
-                onClick={handleGoogleLogin} 
-                className="mt-8 w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-            >
-                Sign in with Google to Go Pro
-            </button>
-        );
+        setIsLoading(false);
+        setSelectedPlan(null);
     };
 
     return (
         <div className="bg-white p-6 md:p-8 rounded-2xl shadow-lg">
             {error && <ErrorMessage message={error} />}
             
-            <div className="mt-4">
-                {renderWelcomeMessage()}
+            <div className="text-center">
+                <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900">
+                    Stop Just Shopping. <span className="text-indigo-600">Start Planning.</span>
+                </h2>
+                <p className="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">
+                    CartSpark Pro is more than a list—it's a full meal planning and shopping system designed to save you time, money, and stress.
+                </p>
             </div>
 
-            <div className="mt-8 space-y-6">
-                 <div className="flex items-start gap-x-4">
-                    <div className="flex-shrink-0 h-8 w-8 flex items-center justify-center bg-green-100 text-green-600 rounded-lg font-bold">✓</div>
-                    <div>
-                        <h3 className="font-semibold text-gray-800">Save & Share Unlimited Lists</h3>
-                        <p className="text-sm text-gray-600 mt-1">Never lose a list again. Save your weekly shops and share them with family members with a single click.</p>
-                    </div>
-                </div>
-                <div className="flex items-start gap-x-4">
-                    <div className="flex-shrink-0 h-8 w-8 flex items-center justify-center bg-green-100 text-green-600 rounded-lg font-bold">✓</div>
-                    <div>
-                        <h3 className="font-semibold text-gray-800">Plan Your Weekly Meals</h3>
-                        <p className="text-sm text-gray-600 mt-1">Use our simple meal planner to organize your week and get ahead of your shopping.</p>
-                    </div>
-                </div>
-                <div className="flex items-start gap-x-4">
-                    <div className="flex-shrink-0 h-8 w-8 flex items-center justify-center bg-green-100 text-green-600 rounded-lg font-bold">✓</div>
-                    <div>
-                        <h3 className="font-semibold text-gray-800">Generate a List from Your Plan</h3>
-                        <p className="text-sm text-gray-600 mt-1">With one click, turn your entire week's meal plan into a perfectly sorted grocery list.</p>
-                    </div>
-                </div>
+            <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8">
+                <FeatureCard icon="🔗" title="Real-Time List Sharing">
+                    Perfect for families and roommates. Add an item at home, and it instantly appears on their phone in the store.
+                </FeatureCard>
+                <FeatureCard icon="📝" title="Save Unlimited Lists">
+                    Create and save different lists for every occasion: weekly groceries, Costco runs, BBQ parties, or camping trips.
+                </FeatureCard>
+                 <FeatureCard icon="📅" title="Weekly Meal Planner">
+                    Organize your breakfast, lunch, and dinner for the entire week with our simple and intuitive planner.
+                </FeatureCard>
+                <FeatureCard title="List from Meal Plan" isGif={true}>
+                    The magic button. Turn your entire week's meal plan into a perfectly sorted grocery list with a single click.
+                </FeatureCard>
             </div>
 
-            <div className="mt-10 text-center">
-                <p className="text-gray-700"><span className="text-3xl font-bold">$0.99</span> <span className="text-gray-500">/ month CAD</span></p>
-                <p className="text-sm font-semibold text-indigo-600">or $9.99 per year (2 months free!)</p>
+            <div className="mt-12">
+                <h3 className="text-2xl font-bold text-center text-gray-800">Choose Your Plan</h3>
+                <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-lg mx-auto">
+                    {/* Monthly Plan */}
+                    <button 
+                        onClick={() => handlePaymentClick(monthlyPriceId)} 
+                        disabled={isLoading}
+                        className="p-6 border-2 border-gray-300 rounded-lg text-center hover:border-indigo-500 hover:bg-indigo-50 transition disabled:opacity-50"
+                    >
+                        <p className="text-lg font-semibold">Monthly</p>
+                        <p className="mt-2 text-3xl font-bold text-gray-900">$0.99</p>
+                        <p className="text-gray-500">per month</p>
+                        <span className="mt-4 block w-full text-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700">
+                            {isLoading && selectedPlan === monthlyPriceId ? 'Processing...' : 'Choose Monthly'}
+                        </span>
+                    </button>
+
+                    {/* Yearly Plan */}
+                    <div className="relative">
+                        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                            <span className="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">
+                                Best Value
+                            </span>
+                        </div>
+                        <button 
+                            onClick={() => handlePaymentClick(yearlyPriceId)} 
+                            disabled={isLoading}
+                            className="p-6 border-2 border-indigo-500 bg-indigo-50 rounded-lg text-center w-full h-full transition disabled:opacity-50"
+                        >
+                            <p className="text-lg font-semibold">Yearly</p>
+                            <p className="mt-2 text-3xl font-bold text-gray-900">$9.99</p>
+                            <p className="text-gray-500">per year</p>
+                            <span className="mt-4 block w-full text-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700">
+                                {isLoading && selectedPlan === yearlyPriceId ? 'Processing...' : 'Save with Yearly'}
+                            </span>
+                        </button>
+                    </div>
+                </div>
             </div>
-            
-            {renderActionButtons()}
         </div>
     );
 };

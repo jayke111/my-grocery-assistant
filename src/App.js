@@ -1,12 +1,12 @@
 import React, { useEffect } from 'react';
 import { useAppContext } from './AppContext';
-import { HeaderV2 as Header, LoadingSpinner, AppFooter, LoginScreen, SuccessPage, GoProPage } from './components/UIComponents';
+import { Header, LoadingSpinner, AppFooter, LoginScreen, SuccessPage, ProNav } from './components/UIComponents';
 import { AboutPage, PrivacyPolicyPage, BlogPage, ArticlePage } from './components/StaticPages';
 import { ListManager } from './components/ListManager';
 import { UserDashboard } from './components/UserDashboard';
 import { MealsDashboard } from './components/MealsDashboard';
 import { MealPlannerDashboard } from './components/MealPlannerDashboard';
-import { ProfilePage } from './components/ProfilePage';
+import { ProfilePage } from './components/ProfilePage'; 
 import { AddMealToListModal } from './components/AddMealToListModal';
 import { PromptModal } from './components/PromptModal';
 import { MealModal } from './components/MealModal';
@@ -17,13 +17,9 @@ function App() {
     const {
         user, authLoading, dataLoading, page, setPage, selectedArticle, setSelectedArticle,
         activeListId, setActiveListId, activeListData,
-        handleGoogleLogin, handleLogout, showAddMealToListModal, setShowAddMealToListModal,
-        handleAddMealToList, listResetKey, guestList, handleSortList, handleClearList,
-        userMeals, subscriptionStatus,
-        newItem, setNewItem, isLoading, error, setError, inputError, setInputError,
-        editingItem, isPremium,
-        handleToggleCheck, handleEditStart, handleEditChange, handleEditSave,
-        handleAddNewItem, handleDeleteItem, handleResort, generatePlainTextList
+        handleGoogleLogin, handleLogout, showAddMealToListModal,
+        listResetKey, guestList, handleSortList, handleClearList,
+        subscriptionStatus
     } = useAppContext();
 
     useEffect(() => {
@@ -43,7 +39,7 @@ function App() {
         if (page === 'success' && subscriptionStatus === 'active') {
             const timer = setTimeout(() => {
                 setPage('home');
-            }, 2000);
+            }, 2000); 
 
             return () => clearTimeout(timer);
         }
@@ -55,7 +51,7 @@ function App() {
             return <LoadingSpinner />;
         }
 
-        if (page === 'go-pro') return <GoProPage />;
+        if (page === 'go-pro') return <SubscribePage />;
         if (page === 'success') return <SuccessPage />;
         if (page === 'about') return <AboutPage setPage={setPage} />;
         if (page === 'privacy') return <PrivacyPolicyPage setPage={setPage} />;
@@ -64,107 +60,83 @@ function App() {
             return <BlogPage setSelectedArticle={setSelectedArticle} setPage={setPage} />;
         }
         if (page === 'login') return <LoginScreen onLogin={handleGoogleLogin} />;
-        if (page === 'subscribe') return <SubscribePage />;
-
-
+        
         if (user) {
-            if (subscriptionStatus !== 'active') {
-                return <GoProPage />;
-            }
-
-            if (page === 'profile') return <ProfilePage />;
-            if (page === 'meals') return <MealsDashboard />;
-            if (page === 'meal-plan') return <MealPlannerDashboard />;
-
-            if (activeListId) {
-                if (activeListData) {
+            if (subscriptionStatus === 'active') {
+                if (page === 'profile') return <ProfilePage />;
+                if (page === 'meals') return <MealsDashboard />;
+                if (page === 'meal-plan') return <MealPlannerDashboard />;
+                
+                if (activeListId) {
                     return (
                         <div className="bg-white p-6 rounded-2xl shadow-lg">
                             <button onClick={() => setActiveListId(null)} className="mb-6 text-blue-600 hover:text-blue-800 font-semibold">&larr; Back to My Lists</button>
-                            <ListManager
-                                listData={activeListData}
-                                onSort={(listText) => handleSortList(listText, activeListId, activeListData.plannedMeals)}
+                            <ListManager 
+                                listData={activeListData} 
+                                onSort={(listText) => handleSortList(listText, activeListId, activeListData.plannedMeals)} 
                                 onClear={handleClearList}
                                 isGuest={false}
-                                isPremium={isPremium}
-                                handleToggleCheck={handleToggleCheck}
-                                handleEditStart={handleEditStart}
-                                handleEditSave={handleEditSave}
-                                handleEditChange={handleEditChange}
-                                handleDeleteItem={handleDeleteItem}
-                                handleResort={handleResort}
-                                handleAddNewItem={handleAddNewItem}
-                                newItem={newItem}
-                                setNewItem={setNewItem}
-                                isLoading={isLoading}
-                                error={error}
-                                inputError={inputError}
-                                editingItem={editingItem}
-                                generatePlainTextList={generatePlainTextList}
-                                setShowAddMealToListModal={setShowAddMealToListModal}
-                                setInputError={setInputError}
-                                setError={setError}
                             />
                         </div>
                     );
-                } else {
-                    return <LoadingSpinner />;
                 }
+                return <UserDashboard />; 
+            } 
+            else {
+                if (page === 'meals' || page === 'meal-plan') {
+                    return <SubscribePage />;
+                }
+                
+                if (page === 'profile') return <ProfilePage />;
+                if (activeListId) {
+                    return (
+                        <div className="bg-white p-6 rounded-2xl shadow-lg">
+                            <button onClick={() => setActiveListId(null)} className="mb-6 text-blue-600 hover:text-blue-800 font-semibold">&larr; Back to My Lists</button>
+                            <ListManager 
+                                listData={activeListData} 
+                                onSort={(listText) => handleSortList(listText, activeListId, activeListData.plannedMeals)} 
+                                onClear={handleClearList}
+                                isGuest={false}
+                            />
+                        </div>
+                    );
+                }
+                return <UserDashboard />; 
             }
-
-            return <UserDashboard />;
         }
 
         return (
             <main className="bg-white p-6 rounded-2xl shadow-lg">
-                 <ListManager
+                 <ListManager 
                     key={listResetKey}
-                    listData={{items: guestList}}
+                    listData={{items: guestList}} 
                     onSort={(listText) => handleSortList(listText, null)}
                     onClear={handleClearList}
                     isGuest={true}
-                    isPremium={isPremium}
-                    handleToggleCheck={handleToggleCheck}
-                    handleEditStart={handleEditStart}
-                    handleEditSave={handleEditSave}
-                    handleEditChange={handleEditChange}
-                    handleDeleteItem={handleDeleteItem}
-                    handleResort={handleResort}
-                    handleAddNewItem={handleAddNewItem}
-                    newItem={newItem}
-                    setNewItem={setNewItem}
-                    isLoading={isLoading}
-                    error={error}
-                    inputError={inputError}
-                    editingItem={editingItem}
-                    generatePlainTextList={generatePlainTextList}
-                    setShowAddMealToListModal={setShowAddMealToListModal}
-                    setInputError={setInputError}
-                    setError={setError}
                  />
             </main>
         );
     };
-
+    
     return (
         <div className="bg-gray-50 min-h-screen font-sans antialiased text-gray-900 pb-12">
              <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@700&display=swap');
              `}</style>
             <div className="container mx-auto p-4 max-w-2xl">
-                <Header
-                    onTitleClick={() => { setPage('home'); setSelectedArticle(null); setActiveListId(null); }}
+                <Header 
+                    onTitleClick={() => { setPage('home'); setSelectedArticle(null); setActiveListId(null); }} 
                     user={user}
                     onLogoutClick={handleLogout}
                     onLoginClick={() => setPage('login')}
                 />
-
+                
                 <main>
                     {renderPageContent()}
                 </main>
-
-                {showAddMealToListModal && <AddMealToListModal userMeals={userMeals} handleAddMealToList={handleAddMealToList} setShowAddMealToListModal={setShowAddMealToListModal} />}
-
+                
+                {showAddMealToListModal && <AddMealToListModal />}
+                
                 <PromptModal />
                 <MealModal />
                 <MealSuggestionsModal />
