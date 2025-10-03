@@ -226,7 +226,7 @@ export const AppProvider = ({ children }) => {
              throw new Error("API Key missing.");
         }
         const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { temperature: 0.3, maxOutputTokens: 2048 } };
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`;
         const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         if (!response.ok) {
             console.error("API Error Response:", await response.text());
@@ -329,6 +329,28 @@ export const AppProvider = ({ children }) => {
             setIsSuggestingItems(false);
         }
     }, [user, activeListData, guestList, ignoredSuggestions, suggestedItems, callGeminiAPI]);
+
+    // --- FIX: Define the generatePlainTextList function ---
+    const generatePlainTextList = useCallback(() => {
+        const currentListSource = user ? activeListData : { items: guestList };
+        if (!hasItems(currentListSource)) {
+            return "Your list is empty!";
+        }
+
+        let plainText = "";
+        const currentItems = currentListSource.items;
+
+        for (const category of categoryOrder) {
+            if (currentItems && currentItems[category] && currentItems[category].length > 0) {
+                plainText += `${category}:\n`;
+                currentItems[category].forEach(item => {
+                    plainText += `- ${item.name}\n`;
+                });
+                plainText += "\n";
+            }
+        }
+        return plainText.trim();
+    }, [user, activeListData, guestList, categoryOrder]);
     
     const handleEditStart = (category, itemIndex) => setEditingItem({ category, index: itemIndex });
     const handleEditChange = (newValue, category, itemIndex) => {
@@ -622,7 +644,7 @@ export const AppProvider = ({ children }) => {
         newItem, isLoading, error, mealIdea, isGeneratingMeal, editingItem, inputError,
         needsResort, userLists, activeListId, activeListData, guestList, userMeals,
         showAddMealToListModal, mealPlan, isPremium, suggestedItems, isSuggestingItems,
-        listResetKey, isUpdatingMealPlan, promptConfig, mealModalConfig,
+        listResetKey, isUpdatingMealPlan, promptConfig, mealModalConfig, categoryOrder,
 
         // Setters
         setPage, setSelectedArticle, setNewItem, setIsLoading, setError, setMealIdea,
@@ -647,4 +669,3 @@ export const AppProvider = ({ children }) => {
         </AppContext.Provider>
     );
 };
-

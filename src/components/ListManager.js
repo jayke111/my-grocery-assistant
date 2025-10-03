@@ -6,7 +6,7 @@ import { InitialListInput } from './InitialListInput';
 
 export const ListManager = ({ listData, onSort, onClear, isGuest }) => {
     const {
-        isPremium, handleToggleCheck, handleEditStart, handleEditSave,
+        handleToggleCheck, handleEditStart, handleEditSave,
         handleEditChange, handleDeleteItem, handleResort, handleAddNewItem,
         newItem, setNewItem, needsResort, isLoading, error, inputError,
         editingItem, categoryOrder, generatePlainTextList, setShowAddMealToListModal,
