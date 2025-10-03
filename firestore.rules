@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // This rule allows a user to read and write to their own user document.
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // --- THIS IS THE DEFINITIVE FIX ---
+    // This single, recursive rule grants a user full read (get + list) and 
+    // write (create, update, delete) permissions over their entire 'meals' 
+    // subcollection. This is the most robust way to ensure access and 
+    // will resolve the permission error for good.
+    match /users/{userId}/meals/{mealId=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // A user can create their own email-to-UID mapping.
+    match /emailToUid/{email} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.token.email == email;
+    }
+
+    // Users can manage lists where they are members.
+    match /lists/{listId} {
+      allow read, update, delete: if request.auth != null && request.auth.uid in resource.data.members;
+      allow create: if request.auth != null && request.auth.uid in request.resource.data.members;
+    }
+    
+    // Users can manage their own meal plan.
+    match /mealPlans/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
