@@ -12,10 +12,7 @@ export const useAppContext = () => {
 };
 
 export const AppProvider = ({ children }) => {
-    // NOTE: This key is now read from your .env file locally, and from Netlify's environment variables on your live site.
     const geminiApiKey = process.env.REACT_APP_GEMINI_API_KEY;
-
-    // --- Core State ---
     const [user, setUser] = useState(null);
     const [subscriptionStatus, setSubscriptionStatus] = useState(null);
     const [authLoading, setAuthLoading] = useState(true);
@@ -23,8 +20,6 @@ export const AppProvider = ({ children }) => {
     const [page, setPage] = useState('home');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-
-    // --- Guest State ---
     const [guestList, setGuestList] = useState(() => {
         try {
             const saved = localStorage.getItem('cartspark-guest-list');
@@ -32,39 +27,31 @@ export const AppProvider = ({ children }) => {
         } catch (e) { return null; }
     });
     const [listResetKey, setListResetKey] = useState(0);
-
-    // --- Logged-in User State ---
     const [userLists, setUserLists] = useState(null);
     const [userMeals, setUserMeals] = useState(null);
     const [mealPlan, setMealPlan] = useState(null);
     const [activeListId, setActiveListId] = useState(null);
     const [activeListData, setActiveListData] = useState(null);
-
-    // --- UI/Interaction State ---
     const [selectedArticle, setSelectedArticle] = useState(null);
     const [newItem, setNewItem] = useState('');
     const [editingItem, setEditingItem] = useState(null);
     const [inputError, setInputError] = useState(false);
     const [needsResort, setNeedsResort] = useState(false);
-    const [isPremium, setIsPremium] = useState(false); // This will be derived from user/subscription status
+    const [isPremium, setIsPremium] = useState(false);
     const [showAddMealToListModal, setShowAddMealToListModal] = useState(false);
     const [isUpdatingMealPlan, setIsUpdatingMealPlan] = useState(false);
     const [promptConfig, setPromptConfig] = useState({ isOpen: false });
     const [mealModalConfig, setMealModalConfig] = useState({ isOpen: false });
-
-    // --- AI Feature State ---
     const [mealIdea, setMealIdea] = useState({ title: '', has: [], needs: [], instructions: '' });
     const [isGeneratingMeal, setIsGeneratingMeal] = useState(false);
     const [suggestedItems, setSuggestedItems] = useState([]);
     const [isSuggestingItems, setIsSuggestingItems] = useState(false);
     const [ignoredSuggestions, setIgnoredSuggestions] = useState([]);
 
-    // --- Auth Listener ---
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
             setUser(currentUser);
             if (!currentUser) {
-                // Clear all user-specific data on logout
                 setSubscriptionStatus(null);
                 setUserLists(null);
                 setUserMeals(null);
@@ -77,9 +64,8 @@ export const AppProvider = ({ children }) => {
         return () => unsubscribe();
     }, []);
     
-    // --- Data Loading for Logged-In Users ---
     useEffect(() => {
-        if (!user) return; // Exit if no user
+        if (!user) return;
 
         setDataLoading(true);
         const userDocRef = doc(db, "users", user.uid);
@@ -87,12 +73,10 @@ export const AppProvider = ({ children }) => {
         const mealsQuery = query(collection(db, "users", user.uid, "meals"));
         const planDocRef = doc(db, "mealPlans", user.uid);
 
-        // Real-time listener for user subscription status
         const unsubUser = onSnapshot(userDocRef, (doc) => {
             setSubscriptionStatus(doc.exists() ? doc.data().subscriptionStatus || 'inactive' : 'inactive');
         }, (err) => console.error("Error fetching user status:", err));
         
-        // Use Promise.all for a robust initial data load
         Promise.all([
             getDocs(listsQuery),
             getDocs(mealsQuery),
@@ -100,25 +84,22 @@ export const AppProvider = ({ children }) => {
         ]).then(([listsSnapshot, mealsSnapshot, planSnap]) => {
             const lists = listsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
             setUserLists(lists);
-
             const meals = mealsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => a.name.localeCompare(b.name));
             setUserMeals(meals);
-
             if (planSnap.exists()) {
                 setMealPlan(planSnap.data());
             } else {
                 const newPlan = { ownerId: user.uid, days: { Sunday: [], Monday: [], Tuesday: [], Wednesday: [], Thursday: [], Friday: [], Saturday: [] } };
-                setDoc(planDocRef, newPlan); // Create plan if it doesn't exist
+                setDoc(planDocRef, newPlan);
                 setMealPlan(newPlan);
             }
-            setDataLoading(false); // Only set loading to false after all initial data is fetched
+            setDataLoading(false);
         }).catch(err => {
             console.error("Error fetching initial data:", err);
             setError("Could not load your data.");
             setDataLoading(false);
         });
 
-        // Attach real-time listeners for subsequent updates
         const unsubLists = onSnapshot(listsQuery, (snapshot) => {
             setUserLists(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)));
         });
@@ -131,7 +112,7 @@ export const AppProvider = ({ children }) => {
             }
         });
 
-        return () => { // Cleanup function
+        return () => {
             unsubUser();
             unsubLists();
             unsubMeals();
@@ -139,7 +120,6 @@ export const AppProvider = ({ children }) => {
         };
     }, [user]);
     
-    // --- Active List Data Loading ---
     useEffect(() => {
         if (activeListId && user) {
             const listDocRef = doc(db, "lists", activeListId);
@@ -152,19 +132,16 @@ export const AppProvider = ({ children }) => {
         }
     }, [activeListId, user]);
 
-    // --- Guest List Persistence ---
     useEffect(() => {
         if (!user) {
             localStorage.setItem('cartspark-guest-list', JSON.stringify(guestList));
         }
     }, [guestList, user]);
 
-    // --- Authentication & Payment ---
     const handleGoogleLogin = async () => {
         const provider = new GoogleAuthProvider();
         try { 
             await signInWithPopup(auth, provider);
-            // After login, the main useEffect will handle checking subscription status and routing.
         } catch (error) { 
             console.error("Authentication error:", error); 
             setError("Failed to sign in. Please try again."); 
@@ -183,7 +160,6 @@ export const AppProvider = ({ children }) => {
             const createStripeCheckout = httpsCallable(functions, 'createStripeCheckout');
             const { data } = await createStripeCheckout();
             const { id: sessionId } = data;
-
             const stripe = window.Stripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
             await stripe.redirectToCheckout({ sessionId });
         } catch (error) {
@@ -201,7 +177,6 @@ export const AppProvider = ({ children }) => {
         setError('');
     };
     
-    // --- Core App Logic ---
     const categoryOrder = useMemo(() => ['Produce', 'Bakery', 'Meat & Seafood', 'Dairy & Eggs', 'Pantry', 'Frozen Foods', 'Beverages', 'Household & Cleaning', 'Personal Care', 'Pets', 'Baby', 'Miscellaneous'], []);
     
     const updateListInStorage = async (newListState) => {
@@ -226,7 +201,7 @@ export const AppProvider = ({ children }) => {
              throw new Error("API Key missing.");
         }
         const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { temperature: 0.3, maxOutputTokens: 2048 } };
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`;
         const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         if (!response.ok) {
             console.error("API Error Response:", await response.text());
@@ -280,7 +255,7 @@ export const AppProvider = ({ children }) => {
         }
         setIsGeneratingMeal(true);
         setError('');
-        setMealIdea({ title: '', has: [], needs: [], instructions: '' }); // Reset to default state
+        setMealIdea({ title: '', has: [], needs: [], instructions: '' });
         try {
             const allItems = Object.values(currentList.items).flat().map(item => item.name);
             const prompt = `Given these grocery items: ${allItems.join(', ')}, suggest a simple meal. Return a JSON object with four keys: "title" (string), "has" (an array of strings for ingredients from the list), "needs" (an array of 1-3 strings for key ingredients NOT on the list), and "instructions" (a string with simple, step-by-step recipe instructions).`;
@@ -329,6 +304,25 @@ export const AppProvider = ({ children }) => {
             setIsSuggestingItems(false);
         }
     }, [user, activeListData, guestList, ignoredSuggestions, suggestedItems, callGeminiAPI]);
+
+    const generatePlainTextList = useCallback(() => {
+        const currentListSource = user ? activeListData : { items: guestList };
+        if (!hasItems(currentListSource)) {
+            return "Your list is empty!";
+        }
+        let plainText = "";
+        const currentItems = currentListSource.items;
+        for (const category of categoryOrder) {
+            if (currentItems && currentItems[category] && currentItems[category].length > 0) {
+                plainText += `${category}:\n`;
+                currentItems[category].forEach(item => {
+                    plainText += `- ${item.name}\n`;
+                });
+                plainText += "\n";
+            }
+        }
+        return plainText.trim();
+    }, [user, activeListData, guestList, categoryOrder]);
     
     const handleEditStart = (category, itemIndex) => setEditingItem({ category, index: itemIndex });
     const handleEditChange = (newValue, category, itemIndex) => {
@@ -376,7 +370,6 @@ export const AppProvider = ({ children }) => {
         }
     };
     
-    // --- List Management ---
     const handleCreateNewList = () => {
         setPromptConfig({
             isOpen: true,
@@ -459,7 +452,6 @@ export const AppProvider = ({ children }) => {
         });
     };
     
-    // --- Meal Management ---
     const handleCreateNewMeal = () => {
         setMealModalConfig({
             isOpen: true,
@@ -525,7 +517,6 @@ export const AppProvider = ({ children }) => {
         }
     }, [user, activeListId, activeListData, handleSortList]);
 
-    // --- Meal Planner ---
     const handleAddMealToPlan = async (meal, day) => {
         if (!user || !day || !mealPlan) return;
         setIsUpdatingMealPlan(true);
@@ -617,20 +608,15 @@ export const AppProvider = ({ children }) => {
     }, [user]);
 
     const value = {
-        // State
         user, authLoading, dataLoading, subscriptionStatus, page, selectedArticle,
         newItem, isLoading, error, mealIdea, isGeneratingMeal, editingItem, inputError,
         needsResort, userLists, activeListId, activeListData, guestList, userMeals,
         showAddMealToListModal, mealPlan, isPremium, suggestedItems, isSuggestingItems,
-        listResetKey, isUpdatingMealPlan, promptConfig, mealModalConfig,
-
-        // Setters
+        listResetKey, isUpdatingMealPlan, promptConfig, mealModalConfig, categoryOrder,
         setPage, setSelectedArticle, setNewItem, setIsLoading, setError, setMealIdea,
         setIsGeneratingMeal, setEditingItem, setInputError, setNeedsResort,
         setActiveListId, setGuestList, setShowAddMealToListModal,
         setPromptConfig, setMealModalConfig, setSuggestedItems,
-        
-        // Functions
         handleGoogleLogin, handleLogout, handleProceedToPayment,
         handleToggleCheck, handleSortList, handleResort, handleEditStart, handleEditChange, handleEditSave,
         handleAddNewItem, handleDeleteItem, handleClearList,
